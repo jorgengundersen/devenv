@@ -56,20 +56,24 @@ RUN chmod +x /usr/local/bin/fnm
 RUN eval "$(/usr/local/bin/fnm env)" \
     && /usr/local/bin/fnm install --lts \
     && /usr/local/bin/fnm use lts-latest \
-    && /usr/local/bin/fnm default lts-latest
+    && /usr/local/bin/fnm default lts-latest \
+    && NODE_PATH=$(command -v node | xargs dirname) \
+    && NODE_ROOT=$(dirname "${NODE_PATH}") \
+    && mkdir -p /opt/node \
+    && cp -a "${NODE_ROOT}/." /opt/node/
 # Create symlinks
-RUN FNM_DIR=$(eval "$(/usr/local/bin/fnm env)" 2>/dev/null && /usr/local/bin/fnm info 2>/dev/null | grep "fnm" | head -1 | awk '{print $2}') || true \
-    && if [ -d "$FNM_DIR" ]; then \
-        NODE_PATH=$(find "$FNM_DIR" -name "node" -type f 2>/dev/null | head -1 | xargs dirname) || true; \
-        if [ -n "$NODE_PATH" ]; then \
-            ln -sf "${NODE_PATH}/node" /usr/local/bin/node || true; \
-            ln -sf "${NODE_PATH}/npm" /usr/local/bin/npm || true; \
-            ln -sf "${NODE_PATH}/npx" /usr/local/bin/npx || true; \
-        fi; \
-    fi
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx
 
 FROM devenv-base:latest AS tool_ripgrep
 USER root
+
+# Runtime deps for Neovim plugins and LSP installers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 # Copy dependencies
 COPY --from=tool_cargo /usr/local/cargo /usr/local/cargo
 COPY --from=tool_cargo /usr/local/rustup /usr/local/rustup
@@ -126,6 +130,15 @@ USER root
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq
 
+FROM devenv-base:latest AS tool_tree_sitter
+USER root
+COPY --from=tool_node /opt/node /opt/node
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx \
+    && /opt/node/bin/npm install -g tree-sitter-cli \
+    && ln -sf /opt/node/bin/tree-sitter /usr/local/bin/tree-sitter
+
 # Final stage: Compose all tools
 FROM devenv-base:latest AS devenv
 
@@ -144,7 +157,7 @@ COPY --from=tool_uv /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=tool_fzf /root/.fzf/bin/fzf /usr/local/bin/fzf
 COPY --from=tool_jq /usr/local/bin/jq /usr/local/bin/jq
 COPY --from=tool_node /usr/local/bin/fnm /usr/local/bin/fnm
-# Note: node/npm/npx are managed by fnm, not copied directly
+COPY --from=tool_tree_sitter /opt/node /opt/node
 COPY --from=tool_ripgrep /usr/bin/rg /usr/local/bin/rg
 COPY --from=tool_gh /usr/bin/gh /usr/bin/gh
 COPY --from=tool_gh /usr/share /usr/share
@@ -154,9 +167,26 @@ COPY --from=tool_starship /usr/local/bin/starship /usr/local/bin/starship
 COPY --from=tool_yq /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=tool_opencode /usr/local/bin/opencode /usr/local/bin/opencode
 COPY --from=tool_copilot-cli /usr/local/bin/copilot /usr/local/bin/copilot
+COPY --from=tool_tree_sitter /usr/local/bin/tree-sitter /usr/local/bin/tree-sitter
+
+# Ensure node binaries are symlinked to the bundled runtime
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx
 
 # Ensure all binaries are executable
 RUN chmod +x /usr/local/bin/* 2>/dev/null || true
+
+# Ensure Neovim runtime files are discoverable
+RUN ln -sf /opt/nvim-linux-x86_64/share/nvim /usr/local/share/nvim
+
+# Provide a wrapper for tvim (NVIM_APPNAME=tvim)
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'set -euo pipefail' \
+    'exec env NVIM_APPNAME=tvim nvim "$@"' \
+    > /usr/local/bin/tvim \
+    && chmod +x /usr/local/bin/tvim
 
 # Provide common env file locations referenced by host dotfiles
 RUN mkdir -p /home/devuser/.cargo /home/devuser/.local/bin /home/devuser/.local/share \
@@ -167,7 +197,7 @@ RUN mkdir -p /home/devuser/.cargo /home/devuser/.local/bin /home/devuser/.local/
 
 # Change ownership to devuser - only chown the binaries and top-level dirs
 RUN chown -R devuser:devuser /usr/local/bin \
-    && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 2>/dev/null || true
+    && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 /opt/node 2>/dev/null || true
 
 # Set up PATH for all tools
 ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:/usr/local/bin:${PATH}"

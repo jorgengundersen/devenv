@@ -137,7 +137,7 @@ Tools must be built in dependency order:
 
 1. **Stage 1 (Base):** `base` — Foundation image with OS and user setup
 2. **Stage 2 (Runtimes & Build Tools):** `cargo`, `go`, `fnm`, `uv`, `jq` — Language runtimes and essential build tools (can be parallel)
-3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `ripgrep` (depends on `cargo`, `jq`)
+3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
 4. **Stage 4 (Standalone):** `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf` — Independent tools (can be parallel)
 
 **Installation Dependencies:**
@@ -153,6 +153,7 @@ Required runtime dependencies:
 | Tool | Dependencies | Artifacts to Copy |
 |------|--------------|-------------------|
 | `node` | `fnm` | `/usr/local/bin/fnm` binary |
+| `tree-sitter` | `node` | `/opt/node` runtime |
 | `ripgrep` | `jq` | `/usr/local/bin/jq` |
 
 **Example:** `ripgrep` uses `jq` to fetch the latest version from GitHub API:
@@ -352,7 +353,7 @@ wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O 
 
 ## Configuration Mount Points
 
-Tool configurations are provided by the host system and mounted as read-only bind mounts at container runtime. Mount points use equivalent paths in the container:
+Tool configurations are provided by the host system and mounted at container runtime. Mount points use equivalent paths in the container. Most mounts are read-only; `tvim` is read-write to allow plugin installs and lockfile updates:
 
 | Tool | Host Path | Container Path |
 |------|-----------|----------------|
@@ -360,6 +361,7 @@ Tool configurations are provided by the host system and mounted as read-only bin
 | bash | `~/.inputrc` | `/home/devuser/.inputrc` |
 | bash | `~/.config/bash/` | `/home/devuser/.config/bash/` |
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
+| tvim | `~/.config/tvim/` | `/home/devuser/.config/tvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
@@ -503,6 +505,7 @@ docker run -d --rm \
   -v "$HOME/.inputrc:/home/devuser/.inputrc:ro" \
   -v "$HOME/.config/bash/:/home/devuser/.config/bash/:ro" \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
+    -v "$HOME/.config/tvim/:/home/devuser/.config/tvim/:rw" \
   -v "$HOME/.config/starship/:/home/devuser/.config/starship/:ro" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
   -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
@@ -533,7 +536,7 @@ docker exec -it devenv-<parent>-<project> bash --login
 | `--workdir` | Start in the mounted project directory |
 | `--label` | Metadata for listing and filtering |
 | `-v` (project) | Bind mount project code (read-write) |
-| `-v` (configs) | Mount tool configs read-only from host |
+| `-v` (configs) | Mount tool configs from host (mostly read-only; tvim is read-write) |
 | `-v` (ssh-agent) | Forward host SSH agent for key access |
 | `-v` (authorized_keys) | Mount SSH authorized keys for sshd |
 | `-e SSH_AUTH_SOCK` | Point container to forwarded SSH agent |

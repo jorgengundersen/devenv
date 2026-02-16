@@ -43,7 +43,7 @@ Options:
     --stage <stage>      Build base or devenv stage
                          Valid stages: base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                         Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, uv, yq
+                         Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --help               Show this help message
 
@@ -169,6 +169,13 @@ build_tool() {
     if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
         log_info "Base image not found, building first..."
         build_stage_base
+    fi
+
+    if [[ "${tool}" == "tree-sitter" ]]; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-tool-node:latest$"; then
+            log_info "Node tool image not found, building first..."
+            build_tool "node"
+        fi
     fi
 
     log_info "Building tool: ${tool}..."

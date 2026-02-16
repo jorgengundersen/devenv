@@ -173,6 +173,9 @@ build_mounts() {
     if [[ -d "${HOME}/.config/nvim" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/nvim:/home/devuser/.config/nvim:ro")
     fi
+    if [[ -d "${HOME}/.config/tvim" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/tvim:/home/devuser/.config/tvim:rw")
+    fi
     if [[ -d "${HOME}/.config/starship" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/starship:/home/devuser/.config/starship:ro")
     fi

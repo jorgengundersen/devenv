@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1
+
+# Tool: tree-sitter (Tree-sitter CLI)
+# Depends on node tool image
+
+FROM devenv-tool-node:latest AS tool_node
+LABEL devenv=true
+
+FROM devenv-base:latest AS tool_tree_sitter
+LABEL devenv=true
+
+USER root
+
+COPY --from=tool_node /opt/node /opt/node
+
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx \
+    && /opt/node/bin/npm install -g tree-sitter-cli \
+    && ln -sf /opt/node/bin/tree-sitter /usr/local/bin/tree-sitter
+
+RUN chown -R devuser:devuser /opt/node /usr/local/bin/tree-sitter
+
+USER devuser

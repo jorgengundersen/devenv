@@ -86,6 +86,7 @@ devenv stop .
 │   ├── Dockerfile.opencode
 │   ├── Dockerfile.ripgrep
 │   ├── Dockerfile.starship
+│   ├── Dockerfile.tree-sitter
 │   ├── Dockerfile.uv
 │   └── Dockerfile.yq
 └── templates/                   # Project templates
@@ -104,9 +105,11 @@ devenv stop .
 - **jq** - JSON processor
 - **node** - Node.js (via fnm)
 - **nvim** - Neovim editor
+- **tvim** - Neovim wrapper (NVIM_APPNAME=tvim)
 - **opencode** - AI coding assistant
 - **ripgrep** - Fast file searcher
 - **starship** - Shell prompt
+- **tree-sitter** - Tree-sitter CLI
 - **uv** - Python package manager
 - **yq** - YAML processor
 
@@ -169,9 +172,22 @@ The following host configurations are mounted into containers:
 | bash | `~/.inputrc` | `/home/devuser/.inputrc` |
 | bash | `~/.config/bash/` | `/home/devuser/.config/bash/` |
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
+| tvim | `~/.config/tvim/` | `/home/devuser/.config/tvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
+
+`tvim` is mounted read-write to allow plugin installs and lockfile updates.
+
+## tvim
+
+If you keep your Neovim config in `~/.config/tvim`, you can launch it in the container with:
+
+```bash
+tvim
+```
+
+This sets `NVIM_APPNAME=tvim` and keeps state under `/home/devuser/.local/share/tvim`.
 
 ## Build Arguments
 
@@ -198,6 +214,10 @@ docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f Dock
 - SSH binds to `127.0.0.1` only; port priority is `--port`, then `DEVENV_SSH_PORT`, then an allocated port
 - Tool configurations are mounted read-only from host
 
+## Future Improvements
+
+- Add a first-class `devenv exec` command to run a command inside a running container
+
 ## Uninstallation
 
 To remove devenv:
@@ -222,4 +242,4 @@ docker rmi devenv-base:latest
 
 ## License
 
-MIT
+GNU General Public License v3.0

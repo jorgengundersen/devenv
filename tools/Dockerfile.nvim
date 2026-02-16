@@ -14,7 +14,8 @@ RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linu
     && rm nvim-linux-x86_64.tar.gz
 
 # Create symlink for easier access
-RUN ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+RUN ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim \
+    && ln -sf /opt/nvim-linux-x86_64/share/nvim /usr/local/share/nvim
 
 # Change ownership
 RUN chown -R devuser:devuser /opt/nvim-linux-x86_64 /usr/local/bin/nvim

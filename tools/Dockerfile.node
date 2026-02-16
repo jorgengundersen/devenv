@@ -6,6 +6,8 @@
 FROM devenv-base:latest AS tool_fnm_stage
 LABEL devenv=true
 USER root
+RUN apt-get update && apt-get install -y --no-install-recommends unzip \
+    && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin \
     && chmod +x /usr/local/bin/fnm \
     && chown devuser:devuser /usr/local/bin/fnm
@@ -20,20 +22,22 @@ COPY --from=tool_fnm_stage /usr/local/bin/fnm /usr/local/bin/fnm
 RUN chmod +x /usr/local/bin/fnm
 
 # Copy shell configuration
-COPY --from=tool_fnm_stage /root/.bashrc /tmp/fnm_bashrc || true
+RUN cp /root/.bashrc /tmp/fnm_bashrc 2>/dev/null || true
 
 # Install latest LTS Node.js
 RUN eval "$(/usr/local/bin/fnm env)" \
     && /usr/local/bin/fnm install --lts \
     && /usr/local/bin/fnm use lts-latest \
-    && /usr/local/bin/fnm default lts-latest
+    && /usr/local/bin/fnm default lts-latest \
+    && NODE_PATH=$(command -v node | xargs dirname) \
+    && NODE_ROOT=$(dirname "${NODE_PATH}") \
+    && mkdir -p /opt/node \
+    && cp -a "${NODE_ROOT}/." /opt/node/
 
 # Make node available system-wide
-RUN FNM_DIR=$(eval "$(/usr/local/bin/fnm env)" && /usr/local/bin/fnm info | grep "fnm" | head -1 | awk '{print $2}') \
-    && NODE_PATH=$(eval "$(/usr/local/bin/fnm env)" && /usr/local/bin/fnm which node | xargs dirname) \
-    && ln -sf "${NODE_PATH}/node" /usr/local/bin/node \
-    && ln -sf "${NODE_PATH}/npm" /usr/local/bin/npm \
-    && ln -sf "${NODE_PATH}/npx" /usr/local/bin/npx
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx
 
 # Change ownership
 RUN chown -R devuser:devuser /usr/local/bin/fnm
