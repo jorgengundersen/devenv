@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.1.1] - 2026-02-16
+
+### Added
+- CONTRIBUTING.md guide for adding, modifying, and removing tools and functionality.
+- AGENTS.md now references CONTRIBUTING.md in the Read First section.
+
 ## [1.1.0] - 2026-02-16
 
 ### Added
