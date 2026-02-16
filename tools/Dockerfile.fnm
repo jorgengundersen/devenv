@@ -1,0 +1,20 @@
+# syntax=docker/dockerfile:1
+
+# Tool: fnm (Fast Node Manager)
+
+FROM devenv-base:latest AS tool_fnm
+LABEL devenv=true
+
+USER root
+
+# Install fnm to /usr/local/bin for system-wide access
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin
+
+# Make fnm available and configure shell
+RUN chmod +x /usr/local/bin/fnm \
+    && echo 'eval "$(fnm env)"' >> /etc/profile.d/fnm.sh
+
+# Change ownership
+RUN chown devuser:devuser /usr/local/bin/fnm /etc/profile.d/fnm.sh
+
+USER devuser

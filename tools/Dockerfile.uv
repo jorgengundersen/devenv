@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+
+# Tool: uv (Python package manager)
+
+FROM devenv-base:latest AS tool_uv
+LABEL devenv=true
+
+USER root
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Move to system location
+RUN mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
+    && chmod +x /usr/local/bin/uv /usr/local/bin/uvx \
+    && chown devuser:devuser /usr/local/bin/uv /usr/local/bin/uvx
+
+USER devuser

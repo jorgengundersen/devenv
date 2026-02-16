@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+
+# Tool: yq (YAML processor)
+
+FROM devenv-base:latest AS tool_yq
+LABEL devenv=true
+
+USER root
+
+# Install yq
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && chown devuser:devuser /usr/local/bin/yq
+
+USER devuser

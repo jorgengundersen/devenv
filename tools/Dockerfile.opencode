@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+
+# Tool: opencode (AI coding assistant)
+
+FROM devenv-base:latest AS tool_opencode
+LABEL devenv=true
+
+USER root
+
+# Install opencode
+RUN curl -fsSL https://opencode.ai/install | bash
+
+USER devuser

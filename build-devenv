@@ -1,0 +1,272 @@
+#!/bin/bash
+set -euo pipefail
+
+# build-devenv - Build management script for containerized development environment
+
+# --- Constants ---
+readonly DEVENV_HOME="${HOME}/.config/devenv"
+readonly IMAGE_PREFIX="devenv"
+
+# --- Logging ---
+declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
+readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
+
+# Emit a structured log line if it meets the current log level.
+_log() {
+    local level="$1"; shift
+    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
+        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
+    fi
+}
+
+# Log a debug message.
+log_debug() { _log "DEBUG" "$@"; }
+# Log an info message.
+log_info() { _log "INFO" "$@"; }
+# Log a warning message.
+log_warning() { _log "WARNING" "$@"; }
+# Log an error message.
+log_error() { _log "ERROR" "$@"; }
+
+# Log error and exit.
+die() { _log "ERROR" "$@"; exit 1; }
+
+# --- Primitives ---
+# Print usage information.
+usage() {
+    cat << EOF
+Usage: build-devenv [OPTIONS]
+
+Build containerized development environment images.
+
+Options:
+    --stage <stage>      Build base or devenv stage
+                         Valid stages: base, devenv
+    --tool <tool>        Build specific tool Dockerfile
+                         Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, uv, yq
+    --project <path>     Build project-specific image from .devenv/Dockerfile
+    --help               Show this help message
+
+Examples:
+    build-devenv --stage base
+    build-devenv --stage devenv
+    build-devenv --tool nvim
+    build-devenv --project ./my-project
+
+Note: The build context is always ~/.config/devenv
+EOF
+}
+
+# Validate Docker availability and daemon state.
+validate_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        return 1
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not running"
+        return 1
+    fi
+}
+
+# Resolve a path argument to a canonical absolute path.
+resolve_project_path() {
+    local raw_path="$1"
+    local path
+
+    if [[ "${raw_path}" == "." ]]; then
+        path="${PWD}"
+    elif [[ "${raw_path}" == /* ]]; then
+        path="${raw_path}"
+    else
+        path="${PWD}/${raw_path}"
+    fi
+
+    if [[ ! -d "${path}" ]]; then
+        return 1
+    fi
+
+    path=$(cd "${path}" && pwd)
+    printf '%s' "${path}"
+}
+
+# Derive a safe project image suffix from path.
+derive_project_image_suffix() {
+    local project_path="$1"
+    local parent_name project_name raw_name safe_name
+
+    parent_name="${project_path%/*}"
+    parent_name="${parent_name##*/}"
+    project_name="${project_path##*/}"
+    raw_name="${parent_name}-${project_name}"
+    safe_name=$(printf '%s' "${raw_name}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+    safe_name=$(printf '%s' "${safe_name}" | sed 's/^[^a-zA-Z0-9]//')
+    if [[ -z "${safe_name}" ]]; then
+        return 1
+    fi
+    printf '%s' "${safe_name}"
+}
+
+# --- Commands ---
+# Build the base image.
+build_stage_base() {
+    log_info "Building base image..."
+
+    local dockerfile="${DEVENV_HOME}/Dockerfile.base"
+    if [[ ! -f "${dockerfile}" ]]; then
+        die "Base Dockerfile not found: ${dockerfile}"
+    fi
+
+    local version
+    version=$(date +%Y%m%d.%H%M%S)
+
+    log_info "Building ${IMAGE_PREFIX}-base:${version}..."
+    docker build \
+        -f "${dockerfile}" \
+        -t "${IMAGE_PREFIX}-base:${version}" \
+        -t "${IMAGE_PREFIX}-base:latest" \
+        "${DEVENV_HOME}"
+
+    log_info "Base image built successfully: ${IMAGE_PREFIX}-base:${version}"
+}
+
+# Build the devenv image (complete environment).
+build_stage_devenv() {
+    log_info "Building devenv image..."
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
+        log_info "Base image not found, building first..."
+        build_stage_base
+    fi
+
+    local dockerfile="${DEVENV_HOME}/Dockerfile.devenv"
+    if [[ ! -f "${dockerfile}" ]]; then
+        die "Devenv Dockerfile not found: ${dockerfile}"
+    fi
+
+    local version
+    version=$(date +%Y%m%d.%H%M%S)
+
+    log_info "Building ${IMAGE_PREFIX}:${version}..."
+    docker build \
+        -f "${dockerfile}" \
+        -t "${IMAGE_PREFIX}:${version}" \
+        -t "${IMAGE_PREFIX}:latest" \
+        "${DEVENV_HOME}"
+
+    log_info "Devenv image built successfully: ${IMAGE_PREFIX}:${version}"
+}
+
+# Build a specific tool image.
+build_tool() {
+    local tool="$1"
+    local dockerfile="${DEVENV_HOME}/tools/Dockerfile.${tool}"
+
+    if [[ ! -f "${dockerfile}" ]]; then
+        die "Tool Dockerfile not found: ${dockerfile}"
+    fi
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
+        log_info "Base image not found, building first..."
+        build_stage_base
+    fi
+
+    log_info "Building tool: ${tool}..."
+    docker build \
+        -f "${dockerfile}" \
+        -t "${IMAGE_PREFIX}-tool-${tool}:latest" \
+        "${DEVENV_HOME}"
+
+    log_info "Tool image built successfully: ${IMAGE_PREFIX}-tool-${tool}:latest"
+}
+
+# Build a project-specific image.
+build_project() {
+    local raw_path="$1"
+    local project_path
+    project_path=$(resolve_project_path "${raw_path}") || die "Project directory does not exist: ${raw_path}"
+
+    local project_dockerfile="${project_path}/.devenv/Dockerfile"
+    if [[ ! -f "${project_dockerfile}" ]]; then
+        die "Project Dockerfile not found: ${project_dockerfile}"
+    fi
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}:latest$"; then
+        log_info "Devenv image not found, building first..."
+        build_stage_devenv
+    fi
+
+    local suffix
+    suffix=$(derive_project_image_suffix "${project_path}") || die "Unable to derive project image tag"
+
+    log_info "Building project image for: ${suffix}..."
+    docker build \
+        -f "${project_dockerfile}" \
+        -t "${IMAGE_PREFIX}-project-${suffix}:latest" \
+        "${project_path}"
+
+    log_info "Project image built successfully: ${IMAGE_PREFIX}-project-${suffix}:latest"
+}
+
+# --- Entrypoint ---
+# Dispatch top-level build operations.
+main() {
+    validate_docker || die "Docker is not available. Install Docker and try again."
+
+    if [[ $# -eq 0 ]]; then
+        usage
+        die "No build options provided. Use --help for usage."
+    fi
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --stage)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    die "--stage requires an argument (base or devenv)"
+                fi
+                case "$1" in
+                    base)
+                        build_stage_base
+                        ;;
+                    devenv)
+                        build_stage_devenv
+                        ;;
+                    *)
+                        die "Invalid stage: $1. Valid stages: base, devenv"
+                        ;;
+                esac
+                shift
+                ;;
+            --tool)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    die "--tool requires an argument"
+                fi
+                build_tool "$1"
+                shift
+                ;;
+            --project)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    die "--project requires a path argument"
+                fi
+                build_project "$1"
+                shift
+                ;;
+            --help|-h)
+                usage
+                return
+                ;;
+            *)
+                die "Unknown option: $1"
+                ;;
+        esac
+    done
+
+    log_info "Build completed successfully"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

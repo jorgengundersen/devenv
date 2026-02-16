@@ -1,0 +1,180 @@
+# syntax=docker/dockerfile:1
+
+# Main Development Environment Image
+# Composes all tool images into a unified environment
+
+# Stage 1: Base image
+FROM devenv-base:latest AS devenv-base
+
+# Stage 2: Runtime and build tools (can be built in parallel)
+FROM devenv-base:latest AS tool_cargo
+USER root
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
+
+FROM devenv-base:latest AS tool_go
+USER root
+RUN GO_RUNTIME_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n 1) \
+    && curl -LO "https://go.dev/dl/${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
+    && rm -rf /usr/local/go \
+    && tar -C /usr/local -xzf "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
+    && rm "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz"
+
+FROM devenv-base:latest AS tool_fnm
+USER root
+# Install unzip which is required by fnm installer
+RUN apt-get update && apt-get install -y --no-install-recommends unzip \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin \
+    && chmod +x /usr/local/bin/fnm
+
+FROM devenv-base:latest AS tool_uv
+USER root
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
+    && chmod +x /usr/local/bin/uv /usr/local/bin/uvx
+
+FROM devenv-base:latest AS tool_fzf
+USER root
+RUN git clone --depth 1 https://github.com/junegunn/fzf.git /root/.fzf \
+    && /root/.fzf/install
+
+FROM devenv-base:latest AS tool_jq
+USER root
+COPY --from=ghcr.io/jqlang/jq:latest /jq /usr/local/bin/jq
+RUN chmod +x /usr/local/bin/jq
+
+# Stage 3: Dependent tools
+FROM devenv-base:latest AS tool_node
+USER root
+# Copy fnm
+COPY --from=tool_fnm /usr/local/bin/fnm /usr/local/bin/fnm
+RUN chmod +x /usr/local/bin/fnm
+# Install Node.js
+RUN eval "$(/usr/local/bin/fnm env)" \
+    && /usr/local/bin/fnm install --lts \
+    && /usr/local/bin/fnm use lts-latest \
+    && /usr/local/bin/fnm default lts-latest
+# Create symlinks
+RUN FNM_DIR=$(eval "$(/usr/local/bin/fnm env)" 2>/dev/null && /usr/local/bin/fnm info 2>/dev/null | grep "fnm" | head -1 | awk '{print $2}') || true \
+    && if [ -d "$FNM_DIR" ]; then \
+        NODE_PATH=$(find "$FNM_DIR" -name "node" -type f 2>/dev/null | head -1 | xargs dirname) || true; \
+        if [ -n "$NODE_PATH" ]; then \
+            ln -sf "${NODE_PATH}/node" /usr/local/bin/node || true; \
+            ln -sf "${NODE_PATH}/npm" /usr/local/bin/npm || true; \
+            ln -sf "${NODE_PATH}/npx" /usr/local/bin/npx || true; \
+        fi; \
+    fi
+
+FROM devenv-base:latest AS tool_ripgrep
+USER root
+# Copy dependencies
+COPY --from=tool_cargo /usr/local/cargo /usr/local/cargo
+COPY --from=tool_cargo /usr/local/rustup /usr/local/rustup
+COPY --from=tool_jq /usr/local/bin/jq /usr/local/bin/jq
+RUN chmod +x /usr/local/bin/jq
+# Install ripgrep
+RUN LATEST_TAG=$(curl -s https://api.github.com/repos/BurntSushi/ripgrep/releases/latest | /usr/local/bin/jq -r '.tag_name') \
+    && curl -LO "https://github.com/BurntSushi/ripgrep/releases/download/${LATEST_TAG}/ripgrep_${LATEST_TAG}-1_amd64.deb" \
+    && dpkg -i "ripgrep_${LATEST_TAG}-1_amd64.deb" \
+    && rm "ripgrep_${LATEST_TAG}-1_amd64.deb"
+
+# Stage 4: Standalone tools
+FROM devenv-base:latest AS tool_gh
+USER root
+RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
+    && mkdir -p -m 755 /etc/apt/keyrings \
+    && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && mkdir -p -m 755 /etc/apt/sources.list.d \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install gh -y \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM devenv-base:latest AS tool_nvim
+USER root
+RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
+    && rm -rf /opt/nvim-linux-x86_64 \
+    && tar -C /opt -xzf nvim-linux-x86_64.tar.gz \
+    && rm nvim-linux-x86_64.tar.gz \
+    && ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+
+FROM devenv-base:latest AS tool_opencode
+USER root
+RUN curl -fsSL https://opencode.ai/install | bash \
+    && if [ -f /root/.opencode/bin/opencode ]; then \
+        mv /root/.opencode/bin/opencode /usr/local/bin/opencode; \
+        chmod +x /usr/local/bin/opencode; \
+    elif [ -f /usr/local/bin/opencode ]; then \
+        chmod +x /usr/local/bin/opencode; \
+    fi
+
+FROM devenv-base:latest AS tool_copilot-cli
+USER root
+RUN curl -fsSL https://gh.io/copilot-install | bash
+
+FROM devenv-base:latest AS tool_starship
+USER root
+RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
+
+FROM devenv-base:latest AS tool_yq
+USER root
+RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq
+
+# Final stage: Compose all tools
+FROM devenv-base:latest AS devenv
+
+# Label for filtering devenv images
+LABEL devenv=true
+
+USER root
+
+# Copy all tool artifacts
+COPY --from=tool_cargo /usr/local/cargo /usr/local/cargo
+COPY --from=tool_cargo /usr/local/rustup /usr/local/rustup
+COPY --from=tool_go /usr/local/go /usr/local/go
+COPY --from=tool_fnm /usr/local/bin/fnm /usr/local/bin/fnm
+COPY --from=tool_uv /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=tool_uv /usr/local/bin/uvx /usr/local/bin/uvx
+COPY --from=tool_fzf /root/.fzf/bin/fzf /usr/local/bin/fzf
+COPY --from=tool_jq /usr/local/bin/jq /usr/local/bin/jq
+COPY --from=tool_node /usr/local/bin/fnm /usr/local/bin/fnm
+# Note: node/npm/npx are managed by fnm, not copied directly
+COPY --from=tool_ripgrep /usr/bin/rg /usr/local/bin/rg
+COPY --from=tool_gh /usr/bin/gh /usr/bin/gh
+COPY --from=tool_gh /usr/share /usr/share
+COPY --from=tool_nvim /opt/nvim-linux-x86_64 /opt/nvim-linux-x86_64
+COPY --from=tool_nvim /usr/local/bin/nvim /usr/local/bin/nvim
+COPY --from=tool_starship /usr/local/bin/starship /usr/local/bin/starship
+COPY --from=tool_yq /usr/local/bin/yq /usr/local/bin/yq
+COPY --from=tool_opencode /usr/local/bin/opencode /usr/local/bin/opencode
+COPY --from=tool_copilot-cli /usr/local/bin/copilot /usr/local/bin/copilot
+
+# Ensure all binaries are executable
+RUN chmod +x /usr/local/bin/* 2>/dev/null || true
+
+# Provide common env file locations referenced by host dotfiles
+RUN mkdir -p /home/devuser/.cargo /home/devuser/.local/bin /home/devuser/.local/share \
+    /home/devuser/.local/share/opencode/log \
+    && ln -sf /usr/local/cargo/env /home/devuser/.cargo/env \
+    && touch /home/devuser/.local/bin/env \
+    && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local
+
+# Change ownership to devuser - only chown the binaries and top-level dirs
+RUN chown -R devuser:devuser /usr/local/bin \
+    && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 2>/dev/null || true
+
+# Set up PATH for all tools
+ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:/usr/local/bin:${PATH}"
+ENV RUSTUP_HOME="/usr/local/rustup"
+ENV CARGO_HOME="/usr/local/cargo"
+
+USER devuser
+
+# Default shell
+CMD ["/bin/bash"]

@@ -1,0 +1,34 @@
+# Python Project with uv Package Manager
+# Template for Python projects using uv as the package manager
+
+FROM devenv:latest
+
+USER root
+
+# Set working directory
+WORKDIR /workspaces/project
+
+# Python best practices
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/home/devuser/.cache/uv
+
+# Create cache directory for uv
+RUN mkdir -p /home/devuser/.cache/uv \
+    && chown -R devuser:devuser /home/devuser/.cache
+
+# Copy project files (uncomment as needed)
+# COPY --chown=devuser:devuser pyproject.toml .
+# COPY --chown=devuser:devuser uv.lock .
+# COPY --chown=devuser:devuser src/ ./src/
+
+# Install project with dev dependencies (editable mode)
+# RUN uv pip install -e ".[dev]"
+
+# Change ownership
+RUN chown -R devuser:devuser /workspaces
+
+USER devuser
+
+# Default command
+CMD ["/bin/bash"]

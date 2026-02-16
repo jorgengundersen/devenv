@@ -1,0 +1,154 @@
+#!/bin/bash
+set -euo pipefail
+
+# install-devenv - Installation script for containerized development environment
+
+# --- Constants ---
+readonly DEVENV_HOME="${HOME}/.config/devenv"
+readonly LOCAL_BIN="${HOME}/.local/bin"
+
+# --- Logging ---
+declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
+readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
+
+# Emit a structured log line if it meets the current log level.
+_log() {
+    local level="$1"; shift
+    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
+        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
+    fi
+}
+
+# Log a debug message.
+log_debug() { _log "DEBUG" "$@"; }
+# Log an info message.
+log_info() { _log "INFO" "$@"; }
+# Log a warning message.
+log_warning() { _log "WARNING" "$@"; }
+# Log an error message.
+log_error() { _log "ERROR" "$@"; }
+
+# Log error and exit.
+die() { _log "ERROR" "$@"; exit 1; }
+
+# --- Primitives ---
+# Print usage information.
+usage() {
+    cat << EOF
+Usage: install-devenv [OPTIONS]
+
+Install devenv scripts by creating symlinks in ~/.local/bin/.
+
+Options:
+    --help, -h          Show this help message
+    --uninstall         Remove symlinks (uninstall)
+
+The following symlinks will be created:
+    ~/.local/bin/build-devenv -> ~/.config/devenv/build-devenv
+    ~/.local/bin/devenv -> ~/.config/devenv/devenv
+
+Note: Ensure ~/.local/bin is in your PATH.
+EOF
+}
+
+# --- Commands ---
+# Create symlinks.
+install_devenv() {
+    log_info "Installing devenv..."
+
+    if [[ ! -d "${LOCAL_BIN}" ]]; then
+        log_info "Creating ${LOCAL_BIN}..."
+        mkdir -p "${LOCAL_BIN}"
+    fi
+
+    if [[ ! -f "${DEVENV_HOME}/build-devenv" ]]; then
+        die "build-devenv script not found at ${DEVENV_HOME}/build-devenv"
+    fi
+    if [[ ! -f "${DEVENV_HOME}/devenv" ]]; then
+        die "devenv script not found at ${DEVENV_HOME}/devenv"
+    fi
+
+    local build_devenv_link="${LOCAL_BIN}/build-devenv"
+    local devenv_link="${LOCAL_BIN}/devenv"
+
+    if [[ -L "${build_devenv_link}" ]]; then
+        log_info "Removing existing symlink: ${build_devenv_link}"
+        rm "${build_devenv_link}"
+    elif [[ -e "${build_devenv_link}" ]]; then
+        die "File already exists (not a symlink): ${build_devenv_link}"
+    fi
+
+    if [[ -L "${devenv_link}" ]]; then
+        log_info "Removing existing symlink: ${devenv_link}"
+        rm "${devenv_link}"
+    elif [[ -e "${devenv_link}" ]]; then
+        die "File already exists (not a symlink): ${devenv_link}"
+    fi
+
+    log_info "Creating symlink: ${build_devenv_link}"
+    ln -s "${DEVENV_HOME}/build-devenv" "${build_devenv_link}"
+
+    log_info "Creating symlink: ${devenv_link}"
+    ln -s "${DEVENV_HOME}/devenv" "${devenv_link}"
+
+    log_info "Installation completed successfully!"
+    log_info "Available commands:"
+    log_info "  build-devenv --help"
+    log_info "  devenv --help"
+
+    if [[ ":${PATH}:" != *":${LOCAL_BIN}:"* ]]; then
+        log_warning "${LOCAL_BIN} is not in your PATH."
+        log_warning "Add the following to your shell configuration:"
+        log_warning "  export PATH=\"\${HOME}/.local/bin:\${PATH}\""
+    fi
+}
+
+# Remove symlinks (uninstall).
+uninstall_devenv() {
+    log_info "Uninstalling devenv..."
+
+    local build_devenv_link="${LOCAL_BIN}/build-devenv"
+    local devenv_link="${LOCAL_BIN}/devenv"
+
+    if [[ -L "${build_devenv_link}" ]]; then
+        log_info "Removing symlink: ${build_devenv_link}"
+        rm "${build_devenv_link}"
+    else
+        log_info "Symlink not found: ${build_devenv_link}"
+    fi
+
+    if [[ -L "${devenv_link}" ]]; then
+        log_info "Removing symlink: ${devenv_link}"
+        rm "${devenv_link}"
+    else
+        log_info "Symlink not found: ${devenv_link}"
+    fi
+
+    log_info "Uninstallation completed successfully!"
+}
+
+# --- Entrypoint ---
+# Dispatch install or uninstall operations.
+main() {
+    if [[ $# -gt 0 ]]; then
+        case "$1" in
+            --help|-h)
+                usage
+                return
+                ;;
+            --uninstall)
+                uninstall_devenv
+                return
+                ;;
+            *)
+                die "Unknown option: $1"
+                ;;
+        esac
+    fi
+
+    install_devenv
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

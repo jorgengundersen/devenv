@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# Tool: nvim (Neovim editor)
+
+FROM devenv-base:latest AS tool_nvim
+LABEL devenv=true
+
+USER root
+
+# Install Neovim
+RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
+    && rm -rf /opt/nvim-linux-x86_64 \
+    && tar -C /opt -xzf nvim-linux-x86_64.tar.gz \
+    && rm nvim-linux-x86_64.tar.gz
+
+# Create symlink for easier access
+RUN ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+
+# Change ownership
+RUN chown -R devuser:devuser /opt/nvim-linux-x86_64 /usr/local/bin/nvim
+
+USER devuser

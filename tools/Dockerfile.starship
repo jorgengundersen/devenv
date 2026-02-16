@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+
+# Tool: starship (shell prompt)
+
+FROM devenv-base:latest AS tool_starship
+LABEL devenv=true
+
+USER root
+
+# Install Starship
+RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
+
+# Change ownership
+RUN chown devuser:devuser /usr/local/bin/starship
+
+USER devuser

@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# Tool: ripgrep (rg)
+# Depends on: jq
+# Installs ripgrep from official GitHub releases
+
+FROM devenv-tool-jq:latest AS jq_source
+FROM devenv-base:latest AS tool_ripgrep
+LABEL devenv=true
+
+USER root
+
+# Copy jq from jq tool image
+COPY --from=jq_source /usr/local/bin/jq /usr/local/bin/jq
+
+# Fetch latest ripgrep version and install
+RUN LATEST_TAG=$(curl -s https://api.github.com/repos/BurntSushi/ripgrep/releases/latest | /usr/local/bin/jq -r '.tag_name') \
+    && curl -LO "https://github.com/BurntSushi/ripgrep/releases/download/${LATEST_TAG}/ripgrep_${LATEST_TAG}-1_amd64.deb" \
+    && dpkg -i "ripgrep_${LATEST_TAG}-1_amd64.deb" \
+    && rm "ripgrep_${LATEST_TAG}-1_amd64.deb"
+
+USER devuser

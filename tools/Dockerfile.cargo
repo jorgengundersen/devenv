@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# Tool: cargo (Rust toolchain)
+# Installs rustup with cargo to system location
+
+FROM devenv-base:latest AS tool_cargo
+LABEL devenv=true
+
+USER root
+
+# Install rustup with cargo to system-wide location
+RUN CARGO_HOME=/usr/local/cargo \
+    RUSTUP_HOME=/usr/local/rustup \
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+
+# Make cargo binaries available system-wide
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+
+# Change ownership to devuser
+RUN chown -R devuser:devuser /usr/local/cargo /usr/local/rustup
+
+USER devuser

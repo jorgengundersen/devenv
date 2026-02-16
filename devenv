@@ -1,0 +1,446 @@
+#!/bin/bash
+set -euo pipefail
+
+# devenv - Runtime environment launcher for containerized development
+
+# --- Constants ---
+readonly IMAGE_PREFIX="devenv"
+
+# --- Logging ---
+declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
+readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
+
+# Emit a structured log line if it meets the current log level.
+_log() {
+    local level="$1"; shift
+    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
+        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
+    fi
+}
+
+# Log a debug message.
+log_debug() { _log "DEBUG" "$@"; }
+# Log an info message.
+log_info() { _log "INFO" "$@"; }
+# Log a warning message.
+log_warning() { _log "WARNING" "$@"; }
+# Log an error message.
+log_error() { _log "ERROR" "$@"; }
+
+# Log error and exit.
+die() { _log "ERROR" "$@"; exit 1; }
+
+# --- Primitives ---
+# Print usage information.
+usage() {
+    cat << EOF
+Usage: devenv [COMMAND | PATH]
+
+Launch persistent containerized development environments.
+
+Commands:
+    list                   List running devenv containers
+    stop <path|name>        Stop a devenv container by path or name
+    stop --all              Stop all devenv containers
+    help                    Display this help information
+
+Options:
+    --port <port>           Bind SSH to a specific localhost port
+
+Examples:
+    devenv .
+    devenv --port 3333 ~/projects/my-app
+    devenv list
+    devenv stop .
+    devenv stop --all
+
+Notes:
+    Containers run in the background and persist until stopped.
+    Sessions attach via docker exec for fast re-attach.
+EOF
+}
+
+# Validate Docker availability and daemon state.
+validate_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        return 1
+    fi
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not running"
+        return 1
+    fi
+}
+
+# Resolve a path argument to a canonical absolute path.
+resolve_project_path() {
+    local raw_path="$1"
+    local path
+
+    if [[ "${raw_path}" == "." ]]; then
+        path="${PWD}"
+    elif [[ "${raw_path}" == /* ]]; then
+        path="${raw_path}"
+    else
+        path="${PWD}/${raw_path}"
+    fi
+
+    if [[ ! -d "${path}" ]]; then
+        return 1
+    fi
+
+    path=$(cd "${path}" && pwd)
+    printf '%s' "${path}"
+}
+
+# Derive a container name from project path.
+derive_container_name() {
+    local project_path="$1"
+    local parent_name project_name raw_name safe_name
+
+    parent_name="${project_path%/*}"
+    parent_name="${parent_name##*/}"
+    project_name="${project_path##*/}"
+    raw_name="devenv-${parent_name}-${project_name}"
+    safe_name=$(printf '%s' "${raw_name}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+    safe_name=$(printf '%s' "${safe_name}" | sed 's/^[^a-zA-Z0-9]//')
+    if [[ -z "${safe_name}" ]]; then
+        return 1
+    fi
+    printf '%s' "${safe_name}"
+}
+
+# Derive a project label for container metadata.
+derive_project_label() {
+    local project_path="$1"
+    local parent_name project_name
+
+    parent_name="${project_path%/*}"
+    parent_name="${parent_name##*/}"
+    project_name="${project_path##*/}"
+    printf '%s' "${parent_name}/${project_name}"
+}
+
+# Derive a safe project image suffix from path.
+derive_project_image_suffix() {
+    local project_path="$1"
+    local parent_name project_name raw_name safe_name
+
+    parent_name="${project_path%/*}"
+    parent_name="${parent_name##*/}"
+    project_name="${project_path##*/}"
+    raw_name="${parent_name}-${project_name}"
+    safe_name=$(printf '%s' "${raw_name}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+    safe_name=$(printf '%s' "${safe_name}" | sed 's/^[^a-zA-Z0-9]//')
+    if [[ -z "${safe_name}" ]]; then
+        return 1
+    fi
+    printf '%s' "${safe_name}"
+}
+
+# Allocate a free port on localhost using python3.
+allocate_port() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        return 1
+    fi
+    python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'
+}
+
+# Check if a container is running.
+is_container_running() {
+    local name="$1"
+    docker ps --filter "name=^/${name}$" --format '{{.Names}}' | grep -q .
+}
+
+# Build docker mount flags into an array.
+build_mounts() {
+    local project_path="$1"
+    local project_name="$2"
+    local -n mounts_ref="$3"
+
+    mounts_ref=()
+    mounts_ref+=("-v" "${project_path}:/workspaces/${project_name}:rw")
+
+    if [[ -f "${HOME}/.bashrc" ]]; then
+        mounts_ref+=("-v" "${HOME}/.bashrc:/home/devuser/.bashrc:ro")
+    fi
+    if [[ -f "${HOME}/.inputrc" ]]; then
+        mounts_ref+=("-v" "${HOME}/.inputrc:/home/devuser/.inputrc:ro")
+    fi
+    if [[ -d "${HOME}/.config/bash" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/bash:/home/devuser/.config/bash:ro")
+    fi
+    if [[ -d "${HOME}/.config/nvim" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/nvim:/home/devuser/.config/nvim:ro")
+    fi
+    if [[ -d "${HOME}/.config/starship" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/starship:/home/devuser/.config/starship:ro")
+    fi
+    if [[ -d "${HOME}/.config/gh" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/gh:/home/devuser/.config/gh:ro")
+    fi
+    if [[ -d "${HOME}/.config/gh-copilot" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/gh-copilot:/home/devuser/.config/gh-copilot:ro")
+    fi
+    if [[ -d "${HOME}/.config/opencode" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/opencode:/home/devuser/.config/opencode:ro")
+    fi
+    if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
+        mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
+    fi
+    if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
+        mounts_ref+=("-v" "${SSH_AUTH_SOCK}:/ssh-agent:ro")
+    fi
+    if [[ -f "${HOME}/.ssh/authorized_keys" ]]; then
+        mounts_ref+=("-v" "${HOME}/.ssh/authorized_keys:/home/devuser/.ssh/authorized_keys:ro")
+    fi
+}
+
+# Build docker env flags into an array.
+build_env_vars() {
+    local -n env_ref="$1"
+
+    env_ref=()
+    if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
+        env_ref+=("-e" "SSH_AUTH_SOCK=/ssh-agent")
+    fi
+    env_ref+=("-e" "TERM=${TERM:-xterm-256color}")
+}
+
+# Determine which image to use.
+get_image_name() {
+    local project_path="$1"
+    local project_dockerfile="${project_path}/.devenv/Dockerfile"
+
+    if [[ -f "${project_dockerfile}" ]]; then
+        local suffix
+        suffix=$(derive_project_image_suffix "${project_path}") || return 1
+        printf '%s' "${IMAGE_PREFIX}-project-${suffix}:latest"
+    else
+        printf '%s' "${IMAGE_PREFIX}:latest"
+    fi
+}
+
+# Build project image if needed.
+ensure_project_image() {
+    local project_path="$1"
+    local project_dockerfile="${project_path}/.devenv/Dockerfile"
+
+    if [[ -f "${project_dockerfile}" ]]; then
+        local image_name
+        image_name=$(get_image_name "${project_path}")
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${image_name}$"; then
+            log_info "Project image not found, building..."
+            if command -v build-devenv >/dev/null 2>&1; then
+                build-devenv --project "${project_path}"
+            else
+                log_warning "build-devenv not found in PATH, attempting direct build..."
+                docker build \
+                    -f "${project_dockerfile}" \
+                    -t "${image_name}" \
+                    "${project_path}"
+            fi
+        fi
+    fi
+}
+
+# Start a new persistent container in the background.
+start_container() {
+    local project_path="$1"
+    local container_name="$2"
+    local image_name="$3"
+    local ssh_port="$4"
+    local project_name project_label
+    local -a mounts env_vars
+
+    project_name="${project_path##*/}"
+    project_label=$(derive_project_label "${project_path}")
+
+    build_mounts "${project_path}" "${project_name}" mounts
+    build_env_vars env_vars
+
+    if [[ -n "${ssh_port}" ]]; then
+        docker run -d --rm \
+            --name "${container_name}" \
+            --label devenv=true \
+            --label "devenv.project=${project_label}" \
+            --user devuser:devuser \
+            --workdir "/workspaces/${project_name}" \
+            -p "127.0.0.1:${ssh_port}:22" \
+            "${mounts[@]}" \
+            "${env_vars[@]}" \
+            --network bridge \
+            "${image_name}" \
+            bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
+    else
+        docker run -d --rm \
+            --name "${container_name}" \
+            --label devenv=true \
+            --label "devenv.project=${project_label}" \
+            --user devuser:devuser \
+            --workdir "/workspaces/${project_name}" \
+            "${mounts[@]}" \
+            "${env_vars[@]}" \
+            --network bridge \
+            "${image_name}" \
+            bash -lc "exec sleep infinity"
+    fi
+}
+
+# Attach to a running container with a login shell.
+attach_container() {
+    local container_name="$1"
+    local project_name="$2"
+    docker exec -it --workdir "/workspaces/${project_name}" "${container_name}" bash --login
+}
+
+# --- Commands ---
+# Start or attach to a development environment.
+cmd_start() {
+    local port_override=""
+    local OPTIND=1
+
+    while getopts ":-:" opt; do
+        case "${opt}" in
+            -)
+                case "${OPTARG}" in
+                    port)
+                        if [[ -z "${!OPTIND:-}" ]]; then
+                            die "Option --port requires a port number"
+                        fi
+                        port_override="${!OPTIND}"
+                        OPTIND=$((OPTIND + 1))
+                        ;;
+                    *)
+                        die "Unknown option --${OPTARG}"
+                        ;;
+                esac
+                ;;
+            ?)
+                die "Unknown option"
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    local path_arg="${1:-.}"
+    local project_path container_name project_name image_name ssh_port
+
+    project_path=$(resolve_project_path "${path_arg}") || die "Project path does not exist: ${path_arg}"
+    container_name=$(derive_container_name "${project_path}") || die "Unable to derive container name"
+    project_name="${project_path##*/}"
+
+    if is_container_running "${container_name}"; then
+        if [[ -n "${port_override}" ]]; then
+            log_warning "Container already running; --port flag ignored"
+        fi
+        log_info "Attaching to ${container_name}"
+        attach_container "${container_name}" "${project_name}"
+        return
+    fi
+
+    image_name=$(get_image_name "${project_path}") || die "Unable to derive image name"
+    if [[ "${image_name}" == "${IMAGE_PREFIX}:latest" ]]; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}:latest$"; then
+            die "Devenv image not found. Run 'build-devenv --stage devenv' first."
+        fi
+    else
+        ensure_project_image "${project_path}"
+    fi
+
+    if [[ -f "${HOME}/.ssh/authorized_keys" ]]; then
+        if [[ -n "${port_override}" ]]; then
+            ssh_port="${port_override}"
+        elif [[ -n "${DEVENV_SSH_PORT:-}" ]]; then
+            ssh_port="${DEVENV_SSH_PORT}"
+        else
+            ssh_port=$(allocate_port) || die "Install python3 or set DEVENV_SSH_PORT"
+        fi
+    else
+        if [[ -n "${port_override}" ]]; then
+            log_warning "authorized_keys not found; --port flag ignored"
+        fi
+        ssh_port=""
+    fi
+
+    start_container "${project_path}" "${container_name}" "${image_name}" "${ssh_port}"
+    if [[ -n "${ssh_port}" ]]; then
+        printf '%s\n' "SSH: 127.0.0.1:${ssh_port}"
+    fi
+    attach_container "${container_name}" "${project_name}"
+}
+
+# List running devenv containers.
+cmd_list() {
+    printf '%-24s %-20s %-10s %s\n' "NAME" "SSH" "STATUS" "STARTED"
+    docker ps --filter label=devenv=true --format '{{.Names}}|{{.Ports}}|{{.Status}}|{{.RunningFor}}' \
+        | while IFS='|' read -r name ports status started; do
+            local ssh
+            ssh=$(printf '%s' "${ports}" | sed -n 's/.*127.0.0.1:\([0-9]*\)->22\/tcp.*/127.0.0.1:\1/p')
+            printf '%-24s %-20s %-10s %s\n' "${name}" "${ssh}" "${status}" "${started}"
+        done
+}
+
+# Stop containers by path, name, or --all.
+cmd_stop() {
+    local target="${1:-}"
+
+    if [[ "${target}" == "--all" ]]; then
+        local ids
+        ids=$(docker ps -q --filter label=devenv=true)
+        if [[ -z "${ids}" ]]; then
+            log_info "No devenv containers running"
+            return
+        fi
+        local -a id_array
+        read -r -a id_array <<< "${ids}"
+        docker stop "${id_array[@]}"
+        return
+    fi
+
+    if [[ -z "${target}" ]]; then
+        die "stop requires a path, name, or --all"
+    fi
+
+    if [[ "${target}" == "." || "${target}" == */* || -d "${target}" ]]; then
+        local project_path container_name
+        project_path=$(resolve_project_path "${target}") || die "Project path does not exist: ${target}"
+        container_name=$(derive_container_name "${project_path}") || die "Unable to derive container name"
+        if ! is_container_running "${container_name}"; then
+            log_warning "No running container: ${container_name}"
+            return
+        fi
+        docker stop "${container_name}"
+        return
+    fi
+
+    docker stop "${target}"
+}
+
+# --- Entrypoint ---
+# Dispatch top-level commands.
+main() {
+    validate_docker || die "Docker is not available. Install Docker and try again."
+
+    local command="${1:-.}"
+    case "${command}" in
+        list)
+            shift
+            cmd_list "$@"
+            ;;
+        stop)
+            shift
+            cmd_stop "$@"
+            ;;
+        help|-h|--help)
+            usage
+            ;;
+        *)
+            cmd_start "$@"
+            ;;
+    esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

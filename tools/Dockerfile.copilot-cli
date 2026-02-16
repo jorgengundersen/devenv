@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+
+# Tool: copilot-cli (GitHub Copilot CLI)
+
+FROM devenv-base:latest AS tool_copilot-cli
+LABEL devenv=true
+
+USER root
+
+# Install GitHub Copilot CLI
+RUN curl -fsSL https://gh.io/copilot-install | bash
+
+USER devuser
