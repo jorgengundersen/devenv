@@ -367,6 +367,7 @@ These are non-negotiable. They apply to all code in the project.
 | `--rm` on all `docker run`        | No orphaned containers. Clean up is automatic.               |
 | No hardcoded secrets              | No passwords, tokens, or keys in scripts or Dockerfiles.     |
 | `authorized_keys` enables SSH     | SSH access requires explicit opt-in via key presence.        |
+| Volumes use `devenv-` prefix and `devenv=true` label | Enables discovery and prevents accidental removal |
 
 ### 3.2 Port Binding
 

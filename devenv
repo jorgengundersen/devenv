@@ -5,6 +5,10 @@ set -euo pipefail
 
 # --- Constants ---
 readonly IMAGE_PREFIX="devenv"
+readonly VOLUME_DATA="devenv-data"
+readonly VOLUME_CACHE="devenv-cache"
+readonly VOLUME_STATE="devenv-state"
+readonly VOLUME_TVIM_LOCK="devenv-tvim-lock"
 
 # --- Logging ---
 declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
@@ -39,13 +43,17 @@ Usage: devenv [COMMAND | PATH]
 Launch persistent containerized development environments.
 
 Commands:
-    list                   List running devenv containers
+    list                    List running devenv containers
     stop <path|name>        Stop a devenv container by path or name
     stop --all              Stop all devenv containers
+    volume list             List devenv volumes with size
+    volume rm <name>        Remove a specific devenv volume
+    volume rm --all         Remove all devenv volumes
     help                    Display this help information
 
 Options:
     --port <port>           Bind SSH to a specific localhost port
+    --force                 Skip confirmation prompt (for volume rm)
 
 Examples:
     devenv .
@@ -53,6 +61,7 @@ Examples:
     devenv list
     devenv stop .
     devenv stop --all
+    devenv volume list
 
 Notes:
     Containers run in the background and persist until stopped.
@@ -159,6 +168,10 @@ build_mounts() {
     local -n mounts_ref="$3"
 
     mounts_ref=()
+    # Persistent named volumes (shared across all devenv containers).
+    mounts_ref+=("-v" "${VOLUME_DATA}:/home/devuser/.local/share")
+    mounts_ref+=("-v" "${VOLUME_CACHE}:/home/devuser/.cache")
+    mounts_ref+=("-v" "${VOLUME_STATE}:/home/devuser/.local/state")
     mounts_ref+=("-v" "${project_path}:/workspaces/${project_name}:rw")
 
     if [[ -f "${HOME}/.bashrc" ]]; then
@@ -174,7 +187,8 @@ build_mounts() {
         mounts_ref+=("-v" "${HOME}/.config/nvim:/home/devuser/.config/nvim:ro")
     fi
     if [[ -d "${HOME}/.config/tvim" ]]; then
-        mounts_ref+=("-v" "${HOME}/.config/tvim:/home/devuser/.config/tvim:rw")
+        mounts_ref+=("-v" "${HOME}/.config/tvim:/home/devuser/.config/tvim:ro")
+        mounts_ref+=("-v" "${VOLUME_TVIM_LOCK}:/home/devuser/.config/tvim/lazy-lock.json")
     fi
     if [[ -d "${HOME}/.config/starship" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/starship:/home/devuser/.config/starship:ro")
@@ -208,6 +222,23 @@ build_env_vars() {
         env_ref+=("-e" "SSH_AUTH_SOCK=/ssh-agent")
     fi
     env_ref+=("-e" "TERM=${TERM:-xterm-256color}")
+}
+
+# Create devenv-managed Docker volumes if they do not already exist.
+ensure_volumes() {
+    local vol
+    for vol in "${VOLUME_DATA}" "${VOLUME_CACHE}" "${VOLUME_STATE}" "${VOLUME_TVIM_LOCK}"; do
+        if ! docker volume inspect "${vol}" >/dev/null 2>&1; then
+            docker volume create --label devenv=true "${vol}" >/dev/null
+            log_info "Created volume: ${vol}"
+        fi
+    done
+}
+
+# Check if a Docker volume is mounted by any running container.
+is_volume_in_use() {
+    local volume_name="$1"
+    docker ps -q --filter "volume=${volume_name}" | grep -q .
 }
 
 # Determine which image to use.
@@ -366,6 +397,7 @@ cmd_start() {
         ssh_port=""
     fi
 
+    ensure_volumes
     start_container "${project_path}" "${container_name}" "${image_name}" "${ssh_port}"
     if [[ -n "${ssh_port}" ]]; then
         printf '%s\n' "SSH: 127.0.0.1:${ssh_port}"
@@ -420,6 +452,119 @@ cmd_stop() {
     docker stop "${target}"
 }
 
+# Manage devenv persistent volumes.
+cmd_volume() {
+    local subcommand="${1:-}"
+    shift || true
+
+    case "${subcommand}" in
+        list)
+            cmd_volume_list
+            ;;
+        rm)
+            cmd_volume_rm "$@"
+            ;;
+        *)
+            die "Unknown volume command: ${subcommand:-<none>}. Use: list, rm"
+            ;;
+    esac
+}
+
+# List devenv-managed volumes with size.
+cmd_volume_list() {
+    local volumes
+    volumes=$(docker volume ls --filter label=devenv=true --format '{{.Name}}')
+    if [[ -z "${volumes}" ]]; then
+        log_info "No devenv volumes found"
+        return
+    fi
+
+    printf '%-24s %s\n' "NAME" "SIZE"
+
+    local vol size
+    while IFS= read -r vol; do
+        size=$(docker system df -v --format '{{range .Volumes}}{{if eq .Name "'"${vol}"'"}}{{.Size}}{{end}}{{end}}' 2>/dev/null)
+        printf '%-24s %s\n' "${vol}" "${size:-unknown}"
+    done <<< "${volumes}"
+}
+
+# Remove devenv volumes with safety checks.
+cmd_volume_rm() {
+    local force=false
+    local remove_all=false
+    local -a targets=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force)
+                force=true
+                shift
+                ;;
+            --all)
+                remove_all=true
+                shift
+                ;;
+            -*)
+                die "Unknown option: $1"
+                ;;
+            *)
+                targets+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    if "${remove_all}"; then
+        if [[ ${#targets[@]} -gt 0 ]]; then
+            die "Cannot specify volume names with --all"
+        fi
+        local all_volumes
+        all_volumes=$(docker volume ls --filter label=devenv=true --format '{{.Name}}')
+        if [[ -z "${all_volumes}" ]]; then
+            log_info "No devenv volumes to remove"
+            return
+        fi
+        local -a vol_array
+        mapfile -t vol_array <<< "${all_volumes}"
+        targets=("${vol_array[@]}")
+    fi
+
+    if [[ ${#targets[@]} -eq 0 ]]; then
+        die "Specify a volume name or use --all"
+    fi
+
+    local vol
+    for vol in "${targets[@]}"; do
+        if is_volume_in_use "${vol}"; then
+            die "Volume '${vol}' is mounted by a running container. Stop the container first."
+        fi
+        if ! docker volume inspect "${vol}" >/dev/null 2>&1; then
+            die "Volume '${vol}' does not exist"
+        fi
+    done
+
+    if ! "${force}"; then
+        local prompt
+        if "${remove_all}"; then
+            prompt="Remove all devenv volumes (${targets[*]})? [y/N]: "
+        else
+            prompt="Remove volume '${targets[*]}'? [y/N]: "
+        fi
+        local answer
+        printf '%s' "${prompt}" >&2
+        read -r answer
+        if [[ "${answer}" != [yY] ]]; then
+            log_info "Cancelled"
+            return
+        fi
+    fi
+
+    for vol in "${targets[@]}"; do
+        docker volume rm "${vol}" >/dev/null
+        log_info "Removed volume: ${vol}"
+    done
+}
+
 # --- Entrypoint ---
 # Dispatch top-level commands.
 main() {
@@ -434,6 +579,10 @@ main() {
         stop)
             shift
             cmd_stop "$@"
+            ;;
+        volume)
+            shift
+            cmd_volume "$@"
             ;;
         help|-h|--help)
             usage

@@ -267,6 +267,17 @@ cat ~/.config/<tool>/config  # should print "test"
 ls -la ~/.config/<tool>/     # should show read-only
 ```
 
+### Persistent volumes vs config mounts
+
+The devenv runtime uses two types of mounts:
+
+- **Config bind mounts (`:ro`)** -- host configuration directories/files mounted read-only into the container. These are managed in `build_mounts()` and described in Section 3 above.
+- **Persistent named volumes** -- Docker-managed volumes for runtime state (XDG data, cache, state). These are defined as constants (`VOLUME_DATA`, `VOLUME_CACHE`, `VOLUME_STATE`, `VOLUME_TVIM_LOCK`) and provisioned by `ensure_volumes()` in the `devenv` script.
+
+When a tool needs to persist runtime data (caches, plugins, logs, history), it writes to the appropriate XDG directory inside the container. The named volumes automatically persist this data. No code changes are needed for new tools that follow XDG conventions.
+
+The `devenv volume` commands (`list`, `rm`, `rm --all`, `rm --force`) provide operational visibility and cleanup for these volumes.
+
 ---
 
 ## 4. Adding a project template

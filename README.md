@@ -36,6 +36,28 @@ export PATH="${HOME}/.local/bin:${PATH}"
 
 Add this to your `~/.bashrc` or `~/.zshrc` to make it permanent.
 
+### Developer Mode (Live Repo Symlinks)
+
+If you develop devenv from a git repository, point command symlinks to that repo so edits are picked up immediately.
+
+```bash
+# From the devenv repository root
+./install-devenv --source "$PWD"
+```
+
+Verify where commands resolve:
+
+```bash
+readlink -f ~/.local/bin/devenv
+readlink -f ~/.local/bin/build-devenv
+```
+
+Switch back to the default location:
+
+```bash
+~/.config/devenv/install-devenv --source ~/.config/devenv
+```
+
 ### 3. Build Base Image
 
 ```bash
@@ -138,6 +160,9 @@ devenv --port 3333 <path>      # Bind SSH to localhost:3333
 devenv list                    # List running containers
 devenv stop <path|name>        # Stop a container
 devenv stop --all              # Stop all devenv containers
+devenv volume list             # List devenv volumes with size
+devenv volume rm <name>        # Remove a specific volume
+devenv volume rm --all         # Remove all devenv volumes
 ```
 
 Persistent containers run in the background and you attach with `docker exec` on subsequent `devenv` calls.
@@ -177,7 +202,20 @@ The following host configurations are mounted into containers:
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
 
-`tvim` is mounted read-write to allow plugin installs and lockfile updates.
+## Persistent Volumes
+
+Runtime state is stored in named Docker volumes that persist across container restarts:
+
+| Volume | Container Mount Point | Purpose |
+|--------|----------------------|---------|
+| `devenv-data` | `/home/devuser/.local/share` | Installed plugins, tree-sitter parsers, tool databases |
+| `devenv-cache` | `/home/devuser/.cache` | Download caches (uv, cargo, npm) |
+| `devenv-state` | `/home/devuser/.local/state` | Log files, command history, session state |
+| `devenv-tvim-lock` | `/home/devuser/.config/tvim/lazy-lock.json` | Plugin manager lockfile |
+
+Volumes are shared across all devenv containers and labeled `devenv=true` for management.
+
+`tvim` is mounted read-only. Plugin data (installed plugins, tree-sitter parsers) persists in the `devenv-data` volume at `~/.local/share/tvim`. The `lazy-lock.json` lockfile is overlaid with a named volume (`devenv-tvim-lock`) so updates persist without granting write access to the host config directory.
 
 ## tvim
 
@@ -213,6 +251,7 @@ docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f Dock
 - SSH `authorized_keys` is bind-mounted at runtime for inbound SSH access (sshd starts only when present)
 - SSH binds to `127.0.0.1` only; port priority is `--port`, then `DEVENV_SSH_PORT`, then an allocated port
 - Tool configurations are mounted read-only from host
+- Persistent volumes use the `devenv-` prefix and carry the `devenv=true` label for discovery and safe cleanup
 
 ## Future Improvements
 

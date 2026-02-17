@@ -4,7 +4,7 @@ set -euo pipefail
 # install-devenv - Installation script for containerized development environment
 
 # --- Constants ---
-readonly DEVENV_HOME="${HOME}/.config/devenv"
+readonly DEFAULT_DEVENV_HOME="${HOME}/.config/devenv"
 readonly LOCAL_BIN="${HOME}/.local/bin"
 
 # --- Logging ---
@@ -41,11 +41,12 @@ Install devenv scripts by creating symlinks in ~/.local/bin/.
 
 Options:
     --help, -h          Show this help message
+    --source, -s        Source directory for scripts (default: ~/.config/devenv)
     --uninstall         Remove symlinks (uninstall)
 
 The following symlinks will be created:
-    ~/.local/bin/build-devenv -> ~/.config/devenv/build-devenv
-    ~/.local/bin/devenv -> ~/.config/devenv/devenv
+    ~/.local/bin/build-devenv -> <source>/build-devenv
+    ~/.local/bin/devenv -> <source>/devenv
 
 Note: Ensure ~/.local/bin is in your PATH.
 EOF
@@ -54,6 +55,7 @@ EOF
 # --- Commands ---
 # Create symlinks.
 install_devenv() {
+    local source_dir="$1"
     log_info "Installing devenv..."
 
     if [[ ! -d "${LOCAL_BIN}" ]]; then
@@ -61,11 +63,11 @@ install_devenv() {
         mkdir -p "${LOCAL_BIN}"
     fi
 
-    if [[ ! -f "${DEVENV_HOME}/build-devenv" ]]; then
-        die "build-devenv script not found at ${DEVENV_HOME}/build-devenv"
+    if [[ ! -f "${source_dir}/build-devenv" ]]; then
+        die "build-devenv script not found at ${source_dir}/build-devenv"
     fi
-    if [[ ! -f "${DEVENV_HOME}/devenv" ]]; then
-        die "devenv script not found at ${DEVENV_HOME}/devenv"
+    if [[ ! -f "${source_dir}/devenv" ]]; then
+        die "devenv script not found at ${source_dir}/devenv"
     fi
 
     local build_devenv_link="${LOCAL_BIN}/build-devenv"
@@ -86,10 +88,10 @@ install_devenv() {
     fi
 
     log_info "Creating symlink: ${build_devenv_link}"
-    ln -s "${DEVENV_HOME}/build-devenv" "${build_devenv_link}"
+    ln -s "${source_dir}/build-devenv" "${build_devenv_link}"
 
     log_info "Creating symlink: ${devenv_link}"
-    ln -s "${DEVENV_HOME}/devenv" "${devenv_link}"
+    ln -s "${source_dir}/devenv" "${devenv_link}"
 
     log_info "Installation completed successfully!"
     log_info "Available commands:"
@@ -130,23 +132,38 @@ uninstall_devenv() {
 # --- Entrypoint ---
 # Dispatch install or uninstall operations.
 main() {
-    if [[ $# -gt 0 ]]; then
+    local source_dir="${DEFAULT_DEVENV_HOME}"
+    local do_uninstall=false
+
+    while [[ $# -gt 0 ]]; do
         case "$1" in
             --help|-h)
                 usage
                 return
                 ;;
             --uninstall)
-                uninstall_devenv
-                return
+                do_uninstall=true
+                shift
+                ;;
+            --source|-s)
+                if [[ -z "${2:-}" ]]; then
+                    die "Option $1 requires a path"
+                fi
+                source_dir="$2"
+                shift 2
                 ;;
             *)
                 die "Unknown option: $1"
                 ;;
         esac
+    done
+
+    if "${do_uninstall}"; then
+        uninstall_devenv
+        return
     fi
 
-    install_devenv
+    install_devenv "${source_dir}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

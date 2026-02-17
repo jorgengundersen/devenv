@@ -353,7 +353,7 @@ wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O 
 
 ## Configuration Mount Points
 
-Tool configurations are provided by the host system and mounted at container runtime. Mount points use equivalent paths in the container. Most mounts are read-only; `tvim` is read-write to allow plugin installs and lockfile updates:
+Tool configurations are provided by the host system and mounted at container runtime. Mount points use equivalent paths in the container. All config mounts are read-only:
 
 | Tool | Host Path | Container Path |
 |------|-----------|----------------|
@@ -429,6 +429,10 @@ devenv stop <path>            # stop env for given path
 devenv stop <name>            # stop env by container name
 devenv stop --all             # stop all devenv containers
 devenv help                   # show help
+devenv volume list            # list devenv volumes with size
+devenv volume rm <name>       # remove a specific volume
+devenv volume rm --all        # remove all devenv volumes
+devenv volume rm --force ...  # skip confirmation prompt
 ```
 
 ### Container Lifecycle
@@ -500,12 +504,16 @@ docker run -d --rm \
   --workdir /workspaces/<project_name> \
   --label devenv=true \
   --label devenv.project=<parent>/<project> \
+    -v "devenv-data:/home/devuser/.local/share" \
+    -v "devenv-cache:/home/devuser/.cache" \
+    -v "devenv-state:/home/devuser/.local/state" \
   -v "<project_path>:/workspaces/<project_name>:rw" \
   -v "$HOME/.bashrc:/home/devuser/.bashrc:ro" \
   -v "$HOME/.inputrc:/home/devuser/.inputrc:ro" \
   -v "$HOME/.config/bash/:/home/devuser/.config/bash/:ro" \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
-    -v "$HOME/.config/tvim/:/home/devuser/.config/tvim/:rw" \
+    -v "$HOME/.config/tvim/:/home/devuser/.config/tvim/:ro" \
+    -v "devenv-tvim-lock:/home/devuser/.config/tvim/lazy-lock.json" \
   -v "$HOME/.config/starship/:/home/devuser/.config/starship/:ro" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
   -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
@@ -536,7 +544,8 @@ docker exec -it devenv-<parent>-<project> bash --login
 | `--workdir` | Start in the mounted project directory |
 | `--label` | Metadata for listing and filtering |
 | `-v` (project) | Bind mount project code (read-write) |
-| `-v` (configs) | Mount tool configs from host (mostly read-only; tvim is read-write) |
+| `-v` (configs) | Mount tool configs from host (read-only) |
+| `-v` (volumes) | Persistent named volumes for XDG data, cache, and state |
 | `-v` (ssh-agent) | Forward host SSH agent for key access |
 | `-v` (authorized_keys) | Mount SSH authorized keys for sshd |
 | `-e SSH_AUTH_SOCK` | Point container to forwarded SSH agent |
