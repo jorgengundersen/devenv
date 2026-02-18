@@ -31,7 +31,7 @@ cp Dockerfile.python-uv /path/to/your/python-project/.devenv/Dockerfile
 
 Each template:
 - Uses `devenv:latest` as the base image
-- Sets up `/workspaces/project` as the working directory
+- Sets `WORKDIR /home/devuser` (runtime `--workdir` overrides to the project path)
 - Runs as `devuser` (non-privileged user)
 - Provides commented examples for common customizations
 

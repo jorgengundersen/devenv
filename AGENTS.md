@@ -1,21 +1,6 @@
 # Agent Guidelines
 
-## Read First
+- If a problem or bug occur; review the issue and suggest professional fixes
+- If you changed or created a bash script, run `shellcheck`
+- We have no backwards compatibility requirements, as long as the specs and plans are followed.
 
-- [specs/README.md](specs/README.md) - specification index
-- [specs/coding-standard.md](specs/coding-standard.md) - mandatory coding rules
-- [CONTRIBUTING.md](CONTRIBUTING.md) - how to add, modify, or remove tools and functionality
-
-## Working Agreements
-
-- Specs describe intent; verify current behavior in the codebase before changing anything.
-- Follow the Bash script structure and logging rules exactly as defined in the coding standard.
-- Keep edits minimal and intentional; no placeholder or TODO content.
-- Use ASCII unless a file already contains non-ASCII characters.
-
-## Repo Layout
-
-- specs/ - authoritative specifications
-- plans/ - planning, research, and summary documents
-- devenv, build-devenv, install-devenv - executable scripts
-- Dockerfile.* and tools/ - build images (do not modify unless explicitly required)

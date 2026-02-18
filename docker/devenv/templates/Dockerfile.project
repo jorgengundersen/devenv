@@ -12,10 +12,7 @@ USER root
 #     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /workspaces/project
-
-# Change ownership
-RUN chown -R devuser:devuser /workspaces
+WORKDIR /home/devuser
 
 USER devuser
 

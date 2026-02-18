@@ -23,11 +23,16 @@ set -euo pipefail
 # <script-name> - <one-line description>
 
 # --- Constants ---
-readonly DEVENV_HOME="${HOME}/.config/devenv"
+DEVENV_HOME="${DEVENV_HOME:-$(
+    script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    cd "${script_dir}/.." && pwd
+)}"
+readonly DEVENV_HOME
 readonly IMAGE_PREFIX="devenv"
 
 # --- Logging ---
 # (see §1.5)
+. "${DEVENV_HOME}/shared/bash/log.sh"
 
 # --- Primitives ---
 # Pure functions. One job each. No side effects beyond their purpose.
@@ -144,11 +149,20 @@ cmd_start() {
 
 ### 1.5 Logging
 
-All scripts use this logging framework:
+All scripts use the same logging framework.
+
+To prevent copy/paste drift, scripts should source the shared library:
+
+```bash
+. "${DEVENV_HOME}/shared/bash/log.sh"
+```
+
+The shared library must provide the following behavior and API:
 
 ```bash
 declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
-readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
+: "${DEVENV_LOG_LEVEL:=WARNING}"
+readonly DEVENV_LOG_LEVEL
 
 _log() {
     local level="$1"; shift
@@ -244,11 +258,11 @@ Long options (`--port`, `--all`) are handled as aliases in the `case` block befo
 ```bash
 # Good
 local mounts=()
-mounts+=("-v" "${path}:/workspaces/${name}:rw")
+mounts+=("-v" "${path}:/home/devuser/${relative_path}:rw")
 docker run "${mounts[@]}" ...
 
 # Bad
-local mounts="-v ${path}:/workspaces/${name}:rw"
+local mounts="-v ${path}:/home/devuser/${relative_path}:rw"
 docker run $mounts ...
 ```
 
@@ -284,6 +298,15 @@ All bash scripts must pass `shellcheck` with zero warnings. This is not optional
 # shellcheck disable=SC2034  # Variable used by sourcing script
 readonly MY_VAR="value"
 ```
+
+**Sourcing shared libraries:** ShellCheck may emit `SC1091` for `source`/`.` lines when the sourced path is dynamic (for example, `. "${DEVENV_HOME}/shared/bash/log.sh"`). In this repo we allow disabling `SC1091` for that specific line:
+
+```bash
+# shellcheck disable=SC1091  # Path resolved at runtime via DEVENV_HOME
+. "${DEVENV_HOME}/shared/bash/log.sh"
+```
+
+If you want ShellCheck to follow and analyze sourced files too, run it with `-x` and include the entrypoint scripts (and any libraries as needed).
 
 ---
 

@@ -6,9 +6,9 @@ Persistent named Docker volumes provide shared, writable storage for tool state 
 
 Tools installed in the devenv image generate runtime state that is expensive to recreate:
 
-- **tvim/nvim** installs plugins and builds tree-sitter parsers on first launch.
+- **nvim** installs plugins and builds tree-sitter parsers on first launch.
 - **uv**, **cargo**, and **npm** download packages into local caches.
-- **opencode**, **gh-copilot**, and **tvim** write log files useful for debugging.
+- **opencode** and **gh-copilot** write log files useful for debugging.
 
 Without persistent storage, every new container pays these costs again. Bind-mounting the host `~/.local/share` into the container would solve persistence but grants the container write access to host state, violating the read-only config mount principle.
 
@@ -82,8 +82,7 @@ Docker processes volume and bind mounts in order. A named volume mounted at `/ho
 
 | Tool | Path Within Volume | Contents |
 |------|-------------------|----------|
-| tvim | `tvim/` | Installed plugins, tree-sitter parsers, shada |
-| nvim | `nvim/` | Plugin data (if nvim is used directly) |
+| nvim | `nvim/` | Plugin data, tree-sitter parsers, shada |
 | gh | `gh/` | Extension data, local state |
 | opencode | `opencode/` | Session data (auth.json is still bind-mounted `:ro` from host) |
 
@@ -94,14 +93,13 @@ Docker processes volume and bind mounts in order. A named volume mounted at `/ho
 | uv | `uv/` | Downloaded Python packages |
 | cargo | `cargo/` | Crate downloads, build artifacts |
 | npm/node | `npm/`, `node/` | Package downloads |
-| nvim/tvim | `nvim/`, `tvim/` | Plugin manager download cache |
+| nvim | `nvim/` | Plugin manager download cache |
 
 ### devenv-state (`~/.local/state`)
 
 | Tool | Path Within Volume | Contents |
 |------|-------------------|----------|
-| tvim | `tvim/` | Log files, undo history |
-| nvim | `nvim/` | Log files |
+| nvim | `nvim/` | Log files, undo history |
 | opencode | `opencode/` | Session logs |
 | gh-copilot | `gh-copilot/` | Interaction logs |
 | bash | `bash/` | Command history (`bash_history`) |
@@ -135,12 +133,6 @@ The coding standard security table gains one entry:
 
 The existing rules remain unchanged. Named volumes do not expose host state and do not require relaxing the read-only config mount principle. The project directory remains the only host-writable bind mount.
 
-### tvim Config Mount
-
-The existing `~/.config/tvim` bind mount changes from `:rw` to `:ro`. Plugin managers write their lockfiles into the config directory on the host, but plugin installation artifacts (the actual downloaded plugins, compiled parsers) go into `~/.local/share/tvim` inside the `devenv-data` volume. With persistent volumes handling the data directory, the config mount no longer needs write access for plugin installs.
-
-If the plugin manager requires writing a lockfile back to the config directory, the mount remains `:rw` and this section does not apply. Evaluate based on the specific plugin manager in use.
-
 ### Docker Run Command Structure
 
 Updated `docker run` with volume mounts (new lines marked):
@@ -149,16 +141,15 @@ Updated `docker run` with volume mounts (new lines marked):
 docker run -d --rm \
   --name devenv-<parent>-<project> \
   --user devuser:devuser \
-  --workdir /workspaces/<project_name> \
+  --workdir /home/devuser/<relative_project_path> \
   --label devenv=true \
   --label devenv.project=<parent>/<project> \
   -v "devenv-data:/home/devuser/.local/share" \        # NEW
   -v "devenv-cache:/home/devuser/.cache" \              # NEW
   -v "devenv-state:/home/devuser/.local/state" \        # NEW
-  -v "<project_path>:/workspaces/<project_name>:rw" \
+  -v "<project_path>:/home/devuser/<relative_project_path>:rw" \
   -v "$HOME/.bashrc:/home/devuser/.bashrc:ro" \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
-  -v "$HOME/.config/tvim/:/home/devuser/.config/tvim/:rw" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
   -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
   -v "$HOME/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro" \
@@ -224,7 +215,7 @@ docker run --rm -v devenv-state:/data alpine ls -laR /data/
 docker run --rm -it -v devenv-state:/data alpine sh
 
 # Copy a log file to the host
-docker run --rm -v devenv-state:/data -v "$PWD:/out" alpine cp /data/tvim/log /out/tvim.log
+docker run --rm -v devenv-state:/data -v "$PWD:/out" alpine cp /data/nvim/log /out/nvim.log
 ```
 
 The `devenv volume` subcommand provides a more convenient interface for common inspection tasks.

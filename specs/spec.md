@@ -13,31 +13,36 @@ The persistent container model enables concurrent multi-project workflows: each 
 ### File Tree
 
 ```
-~/.config/devenv/
-├── build-devenv                 # Build management script
-├── devenv                       # Runtime environment launcher
-├── install-devenv               # Installation script (creates symlinks)
-├── Dockerfile.base              # Base operating system image
-├── Dockerfile.devenv            # Complete development environment (base + tools)
-├── tools/                       # Tool-specific Dockerfiles
-│   ├── Dockerfile.cargo
-│   ├── Dockerfile.copilot-cli
-│   ├── Dockerfile.fnm
-│   ├── Dockerfile.fzf
-│   ├── Dockerfile.gh
-│   ├── Dockerfile.go
-│   ├── Dockerfile.jq
-│   ├── Dockerfile.node
-│   ├── Dockerfile.nvim
-│   ├── Dockerfile.opencode
-│   ├── Dockerfile.ripgrep
-│   ├── Dockerfile.starship
-│   ├── Dockerfile.uv
-│   └── Dockerfile.yq
-├── templates/                   # Project-specific Dockerfile templates
-│   ├── Dockerfile.project       # Generic project template
-│   ├── Dockerfile.python-uv     # Python + uv template
-│   └── README.md                # Template usage guide
+devenv/
+├── bin/
+│   ├── build-devenv             # Build management script
+│   └── devenv                   # Runtime environment launcher
+├── scripts/
+│   └── install-devenv           # Installation script (creates symlinks)
+├── docker/
+│   └── devenv/
+│       ├── Dockerfile.base      # Base operating system image
+│       ├── Dockerfile.devenv    # Complete development environment (base + tools)
+│       └── templates/           # Project-specific Dockerfile templates
+│           ├── Dockerfile.project       # Generic project template
+│           ├── Dockerfile.python-uv     # Python + uv template
+│           └── README.md                # Template usage guide
+├── shared/
+│   └── tools/                   # Tool-specific Dockerfiles
+│       ├── Dockerfile.cargo
+│       ├── Dockerfile.copilot-cli
+│       ├── Dockerfile.fnm
+│       ├── Dockerfile.fzf
+│       ├── Dockerfile.gh
+│       ├── Dockerfile.go
+│       ├── Dockerfile.jq
+│       ├── Dockerfile.node
+│       ├── Dockerfile.nvim
+│       ├── Dockerfile.opencode
+│       ├── Dockerfile.ripgrep
+│       ├── Dockerfile.starship
+│       ├── Dockerfile.uv
+│       └── Dockerfile.yq
 ├── plans/                       # Planning and research documents
 │   ├── plan.md
 │   ├── research.md
@@ -53,18 +58,18 @@ The persistent container model enables concurrent multi-project workflows: each 
 The build pipeline follows a layered architecture:
 
 ```
-Dockerfile.base (Ubuntu + devuser + SSH)
+docker/devenv/Dockerfile.base (Ubuntu + devuser + SSH)
     ↓
-tools/Dockerfile.* (one tool per Dockerfile)
+shared/tools/Dockerfile.* (one tool per Dockerfile)
     ↓
-Dockerfile.devenv (aggregates all tools via multi-stage COPY)
+docker/devenv/Dockerfile.devenv (aggregates all tools via multi-stage COPY)
     ↓
 <project>/.devenv/Dockerfile (extends devenv with project deps)
 ```
 
-1. **Base Image** — Foundation OS with user setup, SSH server, and `/workspaces` directory.
+1. **Base Image** — Foundation OS with user setup and SSH server.
 2. **Tool Images** — Each tool is built independently from the base image using multi-stage syntax.
-3. **Development Environment** — `Dockerfile.devenv` composes all tool artifacts into a single image via `COPY --from` instructions.
+3. **Development Environment** — `docker/devenv/Dockerfile.devenv` composes all tool artifacts into a single image via `COPY --from` instructions.
 4. **Project Extensions** — Project-specific Dockerfiles extend `devenv:latest` with additional dependencies.
 
 ## Design Principles
@@ -100,14 +105,13 @@ Every container is assigned a deterministic name derived from the project path, 
 
 ### Base Image
 
-**Path:** `~/.config/devenv/Dockerfile.base`
+**Path:** `docker/devenv/Dockerfile.base`
 
 **Responsibilities:**
 - Configure the base operating system (Ubuntu)
 - Create `devuser` (non-privileged user with matching host UID and GID)
 - Install core utilities, SSH client, and SSH server (`openssh-server`)
 - Prepare SSH directory structure (`/home/devuser/.ssh`) for runtime `authorized_keys` mounting
-- Create `/workspaces` directory with appropriate permissions for `devuser`
 
 **Build Arguments:**
 
@@ -121,7 +125,7 @@ Every container is assigned a deterministic name derived from the project path, 
 
 ### Tool Images
 
-**Path:** `~/.config/devenv/tools/`
+**Path:** `shared/tools/`
 
 Each tool Dockerfile handles installation of a single tool and its configuration. Tool Dockerfiles use multi-stage syntax:
 
@@ -168,7 +172,7 @@ All tools install their latest stable version. If the Ubuntu package repository 
 
 ### Main Development Environment
 
-**Path:** `~/.config/devenv/Dockerfile.devenv`
+**Path:** `docker/devenv/Dockerfile.devenv`
 
 Composes all tool images using multi-stage builds. Each tool is a separate build stage, and the final stage aggregates artifacts using `COPY --from=tool_<name>` instructions.
 
@@ -188,14 +192,14 @@ Project Dockerfiles use `devenv:latest` as their base image:
 FROM devenv:latest
 ```
 
-**Templates:** Project templates are located in `~/.config/devenv/templates/`:
+**Templates:** Project templates are located in `docker/devenv/templates/`:
 
 - `Dockerfile.project` — Generic project template
 - `Dockerfile.python-uv` — Python project using uv as package manager
 
 **Template Structure:**
 ```
-~/.config/devenv/templates/
+docker/devenv/templates/
 ├── Dockerfile.project      # Base project template
 ├── Dockerfile.python-uv    # Python + uv template
 └── README.md               # Template usage guide
@@ -205,8 +209,8 @@ FROM devenv:latest
 ```dockerfile
 FROM devenv:latest
 
-# Set working directory
-WORKDIR /workspaces/project
+# Set working directory (runtime --workdir overrides this)
+WORKDIR /home/devuser
 
 # Python best practices
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -361,11 +365,26 @@ Tool configurations are provided by the host system and mounted at container run
 | bash | `~/.inputrc` | `/home/devuser/.inputrc` |
 | bash | `~/.config/bash/` | `/home/devuser/.config/bash/` |
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
-| tvim | `~/.config/tvim/` | `/home/devuser/.config/tvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
 | opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
+| git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
+| git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
+| git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
+
+### Git Configuration
+
+Git configuration files from the host are mounted read-only into the container. This includes the main `~/.gitconfig` and any included files matching `~/.gitconfig-*` (auto-discovered at runtime), as well as the XDG-style `~/.config/git/config` if present.
+
+To support git's `includeIf "gitdir:~/..."` conditional includes, the project is mounted at the same `$HOME`-relative path inside the container as it has on the host. Since git resolves `~` to the current user's `$HOME` at runtime, the same `includeIf` directives work in both environments:
+
+- **Host:** `~/Repos/github.com/user/project` → `/home/<host_user>/Repos/github.com/user/project`
+- **Container:** `~/Repos/github.com/user/project` → `/home/devuser/Repos/github.com/user/project`
+
+This allows per-directory git identities (name, email, signing key) to work automatically inside containers without any path rewriting.
+
+**Requirement:** Projects must reside under the host user's `$HOME` directory.
 
 ## Build System
 
@@ -373,7 +392,7 @@ Tool configurations are provided by the host system and mounted at container run
 
 A `build-devenv` script coordinates image construction:
 
-**Location:** `~/.config/devenv/build-devenv`
+**Location:** `bin/build-devenv` (or anywhere on your PATH)
 
 **Usage:**
 ```bash
@@ -385,13 +404,14 @@ build-devenv --project <path>  # Build project-specific image
 **Examples:**
 
 ```bash
-build-devenv --stage base      # Build Dockerfile.base
-build-devenv --stage devenv    # Build Dockerfile.devenv
-build-devenv --tool nvim       # Build tools/Dockerfile.nvim
+build-devenv --stage base      # Build docker/devenv/Dockerfile.base
+build-devenv --stage devenv    # Build docker/devenv/Dockerfile.devenv
+build-devenv --tool nvim       # Build shared/tools/Dockerfile.nvim
 build-devenv --project ./my-project  # Build project/.devenv/Dockerfile
 ```
 
-**Build Context:** The build context is always `~/.config/devenv`, regardless of current working directory.
+**Build Context:** The build context defaults to the repository root.
+You can override it by setting `DEVENV_HOME=/path/to/repo`.
 
 **Tool Image Tags:** When building individual tools, tag as `devenv-tool-<name>:latest` (e.g., `devenv-tool-nvim:latest`).
 
@@ -407,7 +427,7 @@ docker run --rm -it devenv-tool-cargo:latest /bin/bash
 
 These tool images:
 - Contain only the base image + single tool
-- Are **not** integrated into `Dockerfile.devenv`
+- Are **not** integrated into `docker/devenv/Dockerfile.devenv`
 - Enable isolated debugging of build issues
 - Allow quick iteration on tool configurations
 
@@ -415,7 +435,7 @@ These tool images:
 
 The `devenv` script is the primary runtime interface for managing development environment containers.
 
-**Location:** `~/.config/devenv/devenv`
+**Location:** `bin/devenv` (or anywhere on your PATH)
 
 ### Command Structure
 
@@ -501,22 +521,23 @@ The full `docker run` command issued by `devenv` when starting a new container:
 docker run -d --rm \
   --name devenv-<parent>-<project> \
   --user devuser:devuser \
-  --workdir /workspaces/<project_name> \
+  --workdir /home/devuser/<relative_project_path> \
   --label devenv=true \
   --label devenv.project=<parent>/<project> \
-    -v "devenv-data:/home/devuser/.local/share" \
-    -v "devenv-cache:/home/devuser/.cache" \
-    -v "devenv-state:/home/devuser/.local/state" \
-  -v "<project_path>:/workspaces/<project_name>:rw" \
+  -v "devenv-data:/home/devuser/.local/share" \
+  -v "devenv-cache:/home/devuser/.cache" \
+  -v "devenv-state:/home/devuser/.local/state" \
+  -v "<project_path>:/home/devuser/<relative_project_path>:rw" \
   -v "$HOME/.bashrc:/home/devuser/.bashrc:ro" \
   -v "$HOME/.inputrc:/home/devuser/.inputrc:ro" \
   -v "$HOME/.config/bash/:/home/devuser/.config/bash/:ro" \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
-    -v "$HOME/.config/tvim/:/home/devuser/.config/tvim/:ro" \
-    -v "devenv-tvim-lock:/home/devuser/.config/tvim/lazy-lock.json" \
   -v "$HOME/.config/starship/:/home/devuser/.config/starship/:ro" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
   -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
+  -v "$HOME/.gitconfig:/home/devuser/.gitconfig:ro" \
+  -v "$HOME/.gitconfig-*:/home/devuser/.gitconfig-*:ro" \
+  -v "$HOME/.config/git/config:/home/devuser/.config/git/config:ro" \
   -v "$SSH_AUTH_SOCK:/ssh-agent:ro" \
   -v "$HOME/.ssh/authorized_keys:/home/devuser/.ssh/authorized_keys:ro" \
   -e SSH_AUTH_SOCK=/ssh-agent \
@@ -530,7 +551,7 @@ docker run -d --rm \
 Then attach:
 
 ```bash
-docker exec -it devenv-<parent>-<project> bash --login
+docker exec -it --workdir /home/devuser/<relative_project_path> devenv-<parent>-<project> bash --login
 ```
 
 **Docker Run Flags:**
@@ -541,10 +562,11 @@ docker exec -it devenv-<parent>-<project> bash --login
 | `--rm` | Remove container on stop (stateless) |
 | `--name` | Deterministic container name for exec |
 | `--user` | Run as devuser (non-privileged) |
-| `--workdir` | Start in the mounted project directory |
+| `--workdir` | Start in the project directory (mirrors host `$HOME`-relative path) |
 | `--label` | Metadata for listing and filtering |
-| `-v` (project) | Bind mount project code (read-write) |
+| `-v` (project) | Bind mount project code at `$HOME`-relative path (read-write) |
 | `-v` (configs) | Mount tool configs from host (read-only) |
+| `-v` (git) | Mount git config files from host (read-only) |
 | `-v` (volumes) | Persistent named volumes for XDG data, cache, and state |
 | `-v` (ssh-agent) | Forward host SSH agent for key access |
 | `-v` (authorized_keys) | Mount SSH authorized keys for sshd |
@@ -635,15 +657,15 @@ docker image prune -a
 
 **Executable Scripts:** Two executable scripts provide the main interface:
 
-- **`~/.config/devenv/build-devenv`** — Build management
-- **`~/.config/devenv/devenv`** — Runtime environment launcher
+- **`devenv/build-devenv`** — Build management
+- **`devenv/devenv`** — Runtime environment launcher
 
 **Installation:** The `install-devenv` script creates symlinks in `~/.local/bin/`:
 
 ```bash
 # install-devenv creates these symlinks:
-ln -s ~/.config/devenv/build-devenv ~/.local/bin/build-devenv
-ln -s ~/.config/devenv/devenv ~/.local/bin/devenv
+ln -s /path/to/devenv/build-devenv ~/.local/bin/build-devenv
+ln -s /path/to/devenv/devenv ~/.local/bin/devenv
 ```
 
 Scripts do not use `.sh` extension.

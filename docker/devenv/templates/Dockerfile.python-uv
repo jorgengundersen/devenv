@@ -6,7 +6,7 @@ FROM devenv:latest
 USER root
 
 # Set working directory
-WORKDIR /workspaces/project
+WORKDIR /home/devuser
 
 # Python best practices
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -24,9 +24,6 @@ RUN mkdir -p /home/devuser/.cache/uv \
 
 # Install project with dev dependencies (editable mode)
 # RUN uv pip install -e ".[dev]"
-
-# Change ownership
-RUN chown -R devuser:devuser /workspaces
 
 USER devuser
 

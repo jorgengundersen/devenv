@@ -13,11 +13,11 @@ Before making changes, read these documents:
 ## Architecture overview
 
 ```
-Dockerfile.base          Ubuntu 24.04 + devuser + SSH + core utilities
+docker/devenv/Dockerfile.base          Ubuntu 24.04 + devuser + SSH + core utilities
        |
-tools/Dockerfile.*       One tool per Dockerfile, independent build stages
+shared/tools/Dockerfile.*               One tool per Dockerfile, independent build stages
        |
-Dockerfile.devenv        Multi-stage build that aggregates all tools via COPY --from
+docker/devenv/Dockerfile.devenv         Multi-stage build that aggregates all tools via COPY --from
        |
 <project>/.devenv/Dockerfile   (optional) Project-specific layer extending devenv:latest
 ```
@@ -33,7 +33,7 @@ This is the most common change. You need to touch four files.
 
 ### Step 1: Create the tool Dockerfile
 
-Create `tools/Dockerfile.<toolname>`.
+Create `shared/tools/Dockerfile.<toolname>`.
 
 Every tool Dockerfile follows the same structure:
 
@@ -71,16 +71,16 @@ Rules:
 
 | Complexity | File | Pattern |
 |------------|------|---------|
-| Simple (single binary download) | `tools/Dockerfile.yq` | Download binary, `chmod`, done |
-| Simple (installer script) | `tools/Dockerfile.starship` | Run installer, `chown` binary |
-| Medium (apt repository) | `tools/Dockerfile.gh` | Add apt key + source, `apt-get install`, clean up |
-| Medium (install + relocate) | `tools/Dockerfile.uv` | Run installer, move binaries to `/usr/local/bin/` |
-| Complex (depends on another tool) | `tools/Dockerfile.node` | Multi-stage: build `fnm` first, then use it to install Node |
-| Complex (external image dependency) | `tools/Dockerfile.ripgrep` | Pulls from `devenv-tool-jq:latest`, copies `jq` in |
+| Simple (single binary download) | `shared/tools/Dockerfile.yq` | Download binary, `chmod`, done |
+| Simple (installer script) | `shared/tools/Dockerfile.starship` | Run installer, `chown` binary |
+| Medium (apt repository) | `shared/tools/Dockerfile.gh` | Add apt key + source, `apt-get install`, clean up |
+| Medium (install + relocate) | `shared/tools/Dockerfile.uv` | Run installer, move binaries to `/usr/local/bin/` |
+| Complex (depends on another tool) | `shared/tools/Dockerfile.node` | Multi-stage: build `fnm` first, then use it to install Node |
+| Complex (external image dependency) | `shared/tools/Dockerfile.ripgrep` | Pulls from `devenv-tool-jq:latest`, copies `jq` in |
 
 ### Step 2: Add the tool stage to Dockerfile.devenv
 
-Open `Dockerfile.devenv` and add two things:
+Open `docker/devenv/Dockerfile.devenv` and add two things:
 
 **A. A build stage** in the appropriate section. Place independent tools in
 Stage 2 or Stage 4; tools that depend on other stages go in Stage 3.
@@ -158,7 +158,7 @@ Before removing, check whether other tools depend on it. Known dependencies:
 | Tool | Depended on by |
 |------|----------------|
 | `fnm` | `node` (uses fnm to install Node.js) |
-| `cargo` | `ripgrep` (copied into ripgrep stage in `Dockerfile.devenv`) |
+| `cargo` | `ripgrep` (copied into ripgrep stage in `docker/devenv/Dockerfile.devenv`) |
 | `jq` | `ripgrep` (used to parse GitHub API response) |
 
 If other tools depend on the one you are removing, you must update or remove
@@ -175,7 +175,7 @@ If the tool contributed a `PATH` entry, remove it from the `ENV PATH=` line.
 ### Step 3: Delete the standalone Dockerfile
 
 ```bash
-rm tools/Dockerfile.<toolname>
+rm shared/tools/Dockerfile.<toolname>
 ```
 
 ### Step 4: Update build-devenv usage text
@@ -272,7 +272,7 @@ ls -la ~/.config/<tool>/     # should show read-only
 The devenv runtime uses two types of mounts:
 
 - **Config bind mounts (`:ro`)** -- host configuration directories/files mounted read-only into the container. These are managed in `build_mounts()` and described in Section 3 above.
-- **Persistent named volumes** -- Docker-managed volumes for runtime state (XDG data, cache, state). These are defined as constants (`VOLUME_DATA`, `VOLUME_CACHE`, `VOLUME_STATE`, `VOLUME_TVIM_LOCK`) and provisioned by `ensure_volumes()` in the `devenv` script.
+- **Persistent named volumes** -- Docker-managed volumes for runtime state (XDG data, cache, state). These are defined as constants (`VOLUME_DATA`, `VOLUME_CACHE`, `VOLUME_STATE`) and provisioned by `ensure_volumes()` in the `devenv` script.
 
 When a tool needs to persist runtime data (caches, plugins, logs, history), it writes to the appropriate XDG directory inside the container. The named volumes automatically persist this data. No code changes are needed for new tools that follow XDG conventions.
 
@@ -282,20 +282,20 @@ The `devenv volume` commands (`list`, `rm`, `rm --all`, `rm --force`) provide op
 
 ## 4. Adding a project template
 
-Project templates live in `templates/` and provide starting points for
+Project templates live in `docker/devenv/templates/` and provide starting points for
 project-specific Dockerfiles.
 
 ### Step 1: Create the template
 
-Create `templates/Dockerfile.<type>`. All templates must:
+Create `docker/devenv/templates/Dockerfile.<type>`. All templates must:
 
 - Extend `devenv:latest` (never `devenv-base:latest`).
 - Install as `root`, then switch to `devuser`.
-- Set `WORKDIR /workspaces/project`.
+- Set `WORKDIR /home/devuser` (runtime `--workdir` overrides to the project path).
 - End with `USER devuser` and `CMD ["/bin/bash"]`.
 - Use comments to explain project-specific customization points.
 
-Use `templates/Dockerfile.python-uv` as a reference:
+Use `docker/devenv/templates/Dockerfile.python-uv` as a reference:
 
 ```dockerfile
 # <Type> Project
@@ -305,8 +305,8 @@ FROM devenv:latest
 
 USER root
 
-# Set working directory
-WORKDIR /workspaces/project
+# Set working directory (runtime --workdir overrides)
+WORKDIR /home/devuser
 
 # Environment variables
 ENV KEY=value
@@ -317,7 +317,7 @@ ENV KEY=value
 #     && rm -rf /var/lib/apt/lists/*
 
 # Change ownership
-RUN chown -R devuser:devuser /workspaces
+# (Not needed for project files — bind mount uses UID matching)
 
 USER devuser
 
@@ -325,7 +325,7 @@ USER devuser
 CMD ["/bin/bash"]
 ```
 
-### Step 2: Update templates/README.md
+### Step 2: Update docker/devenv/templates/README.md
 
 Add a section for the new template with a description and usage example:
 
@@ -345,7 +345,7 @@ cp Dockerfile.<type> /path/to/your/project/.devenv/Dockerfile
 ```bash
 # Copy template to a test project
 mkdir -p /tmp/test-project/.devenv
-cp templates/Dockerfile.<type> /tmp/test-project/.devenv/Dockerfile
+cp docker/devenv/templates/Dockerfile.<type> /tmp/test-project/.devenv/Dockerfile
 
 # Build and start
 build-devenv --project /tmp/test-project
@@ -361,29 +361,29 @@ tools, all projects, and all users. Modify them only when necessary.
 
 ### When to modify Dockerfile.base
 
-Modify `Dockerfile.base` only when the change is required by the core
+Modify `docker/devenv/Dockerfile.base` only when the change is required by the core
 container infrastructure. This includes:
 
 - **OS-level packages needed by multiple tools** (e.g., adding `unzip` if
   three or more tools need it).
 - **Changes to the user/group setup** (UID/GID handling, sudo configuration).
 - **SSH server configuration changes**.
-- **Core directory structure** (`/workspaces`, `/home/devuser/.ssh`).
+- **Core directory structure** (`/home/devuser/.ssh`).
 
 ### When NOT to modify Dockerfile.base
 
-Do not modify `Dockerfile.base` for:
+Do not modify `docker/devenv/Dockerfile.base` for:
 
 - A package needed by only one tool. Install it in that tool's Dockerfile
   instead.
-- Language runtimes or development tools. These belong in `tools/`.
+- Language runtimes or development tools. These belong in `shared/tools/`.
 - Configuration files. These are bind-mounted at runtime.
 - Anything that only one project needs. Use a project-specific
   `.devenv/Dockerfile` instead.
 
 ### When to modify Dockerfile.devenv
 
-The final stage of `Dockerfile.devenv` (the `devenv` stage starting with
+The final stage of `docker/devenv/Dockerfile.devenv` (the `devenv` stage starting with
 `FROM devenv-base:latest AS devenv`) handles artifact composition: copying
 binaries from tool stages, setting `PATH`, and fixing ownership.
 
@@ -396,7 +396,7 @@ Modify it when:
 
 ### When NOT to modify Dockerfile.devenv
 
-Do not modify `Dockerfile.devenv` for:
+Do not modify `docker/devenv/Dockerfile.devenv` for:
 
 - Installing packages directly in the final stage. Each tool should have its
   own build stage, and only the artifacts should be copied in.
@@ -404,7 +404,7 @@ Do not modify `Dockerfile.devenv` for:
 
 ### Procedure for base image changes
 
-1. Make the change in `Dockerfile.base`.
+1. Make the change in `docker/devenv/Dockerfile.base`.
 2. Rebuild the base image: `build-devenv --stage base`.
 3. Rebuild the devenv image: `build-devenv --stage devenv`.
 4. Test that all existing tools still work.
@@ -412,7 +412,7 @@ Do not modify `Dockerfile.devenv` for:
 
 ### Procedure for devenv final stage changes
 
-1. Make the change in `Dockerfile.devenv` (final stage only).
+1. Make the change in `docker/devenv/Dockerfile.devenv` (final stage only).
 2. Rebuild: `build-devenv --stage devenv`.
 3. Verify the change inside a container: `devenv .`.
 

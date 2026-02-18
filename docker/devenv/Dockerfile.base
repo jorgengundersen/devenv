@@ -51,12 +51,8 @@ RUN mkdir -p /home/${USERNAME}/.ssh \
 
 RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh
 
-# Create workspaces directory
-RUN mkdir -p /workspaces \
-    && chown -R ${USERNAME}:${USERNAME} /workspaces
-
 # Set default working directory
-WORKDIR /workspaces
+WORKDIR /home/${USERNAME}
 
 # Switch to non-privileged user
 USER ${USERNAME}

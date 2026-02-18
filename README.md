@@ -4,12 +4,14 @@ A containerized development environment designed for terminal-based agentic work
 
 ## Quick Start
 
+Clone this repository and work from the repository root.
+
 ### 1. Make Scripts Executable
 
 Run the following command to make all scripts executable:
 
 ```bash
-chmod +x ~/.config/devenv/build-devenv ~/.config/devenv/devenv ~/.config/devenv/install-devenv
+chmod +x ./bin/build-devenv ./bin/devenv ./scripts/install-devenv
 ```
 
 ### 2. Install Commands
@@ -17,15 +19,15 @@ chmod +x ~/.config/devenv/build-devenv ~/.config/devenv/devenv ~/.config/devenv/
 Run the install script to create symlinks in `~/.local/bin/`:
 
 ```bash
-~/.config/devenv/install-devenv
+./scripts/install-devenv
 ```
 
 Or manually create symlinks:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -s ~/.config/devenv/build-devenv ~/.local/bin/build-devenv
-ln -s ~/.config/devenv/devenv ~/.local/bin/devenv
+ln -s "$PWD/bin/build-devenv" ~/.local/bin/build-devenv
+ln -s "$PWD/bin/devenv" ~/.local/bin/devenv
 ```
 
 Ensure `~/.local/bin` is in your PATH:
@@ -38,12 +40,7 @@ Add this to your `~/.bashrc` or `~/.zshrc` to make it permanent.
 
 ### Developer Mode (Live Repo Symlinks)
 
-If you develop devenv from a git repository, point command symlinks to that repo so edits are picked up immediately.
-
-```bash
-# From the devenv repository root
-./install-devenv --source "$PWD"
-```
+The install script creates symlinks to your current working copy, so updates to the repo take effect immediately.
 
 Verify where commands resolve:
 
@@ -52,10 +49,10 @@ readlink -f ~/.local/bin/devenv
 readlink -f ~/.local/bin/build-devenv
 ```
 
-Switch back to the default location:
+To point the symlinks at a different checkout/location:
 
 ```bash
-~/.config/devenv/install-devenv --source ~/.config/devenv
+./scripts/install-devenv --source /path/to/devenv
 ```
 
 ### 3. Build Base Image
@@ -89,32 +86,37 @@ devenv stop .
 ## Architecture
 
 ```
-~/.config/devenv/
-├── Dockerfile.base              # Base operating system image
-├── Dockerfile.devenv            # Complete development environment
-├── build-devenv                 # Build management script
-├── devenv                       # Runtime environment launcher
-├── install-devenv               # Installation script
+devenv/
+├── bin/
+│   ├── build-devenv             # Build management script
+│   └── devenv                   # Runtime environment launcher
+├── scripts/
+│   └── install-devenv           # Installation script
+├── docker/
+│   └── devenv/
+│       ├── Dockerfile.base      # Base operating system image
+│       ├── Dockerfile.devenv    # Complete development environment
+│       └── templates/           # Project templates
+│           ├── Dockerfile.project
+│           ├── Dockerfile.python-uv
+│           └── README.md
 ├── README.md                    # This file
-├── tools/                       # Tool-specific Dockerfiles
-│   ├── Dockerfile.cargo
-│   ├── Dockerfile.copilot-cli
-│   ├── Dockerfile.fnm
-│   ├── Dockerfile.gh
-│   ├── Dockerfile.go
-│   ├── Dockerfile.jq
-│   ├── Dockerfile.node
-│   ├── Dockerfile.nvim
-│   ├── Dockerfile.opencode
-│   ├── Dockerfile.ripgrep
-│   ├── Dockerfile.starship
-│   ├── Dockerfile.tree-sitter
-│   ├── Dockerfile.uv
-│   └── Dockerfile.yq
-└── templates/                   # Project templates
-    ├── Dockerfile.project
-    ├── Dockerfile.python-uv
-    └── README.md
+└── shared/
+    └── tools/                   # Tool-specific Dockerfiles
+        ├── Dockerfile.cargo
+        ├── Dockerfile.copilot-cli
+        ├── Dockerfile.fnm
+        ├── Dockerfile.gh
+        ├── Dockerfile.go
+        ├── Dockerfile.jq
+        ├── Dockerfile.node
+        ├── Dockerfile.nvim
+        ├── Dockerfile.opencode
+        ├── Dockerfile.ripgrep
+        ├── Dockerfile.starship
+        ├── Dockerfile.tree-sitter
+        ├── Dockerfile.uv
+        └── Dockerfile.yq
 ```
 
 ## Available Tools
@@ -127,7 +129,6 @@ devenv stop .
 - **jq** - JSON processor
 - **node** - Node.js (via fnm)
 - **nvim** - Neovim editor
-- **tvim** - Neovim wrapper (NVIM_APPNAME=tvim)
 - **opencode** - AI coding assistant
 - **ripgrep** - Fast file searcher
 - **starship** - Shell prompt
@@ -185,7 +186,7 @@ RUN apt-get update && apt-get install -y \
 USER devuser
 ```
 
-See the `templates/` directory for examples.
+See `docker/devenv/templates/` for examples.
 
 ## Configuration Mount Points
 
@@ -197,10 +198,12 @@ The following host configurations are mounted into containers:
 | bash | `~/.inputrc` | `/home/devuser/.inputrc` |
 | bash | `~/.config/bash/` | `/home/devuser/.config/bash/` |
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
-| tvim | `~/.config/tvim/` | `/home/devuser/.config/tvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
+| git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
+| git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
+| git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
 
 ## Persistent Volumes
 
@@ -211,21 +214,8 @@ Runtime state is stored in named Docker volumes that persist across container re
 | `devenv-data` | `/home/devuser/.local/share` | Installed plugins, tree-sitter parsers, tool databases |
 | `devenv-cache` | `/home/devuser/.cache` | Download caches (uv, cargo, npm) |
 | `devenv-state` | `/home/devuser/.local/state` | Log files, command history, session state |
-| `devenv-tvim-lock` | `/home/devuser/.config/tvim/lazy-lock.json` | Plugin manager lockfile |
 
 Volumes are shared across all devenv containers and labeled `devenv=true` for management.
-
-`tvim` is mounted read-only. Plugin data (installed plugins, tree-sitter parsers) persists in the `devenv-data` volume at `~/.local/share/tvim`. The `lazy-lock.json` lockfile is overlaid with a named volume (`devenv-tvim-lock`) so updates persist without granting write access to the host config directory.
-
-## tvim
-
-If you keep your Neovim config in `~/.config/tvim`, you can launch it in the container with:
-
-```bash
-tvim
-```
-
-This sets `NVIM_APPNAME=tvim` and keeps state under `/home/devuser/.local/share/tvim`.
 
 ## Build Arguments
 
@@ -240,7 +230,7 @@ All Dockerfiles support these build arguments:
 Example with custom UID/GID:
 
 ```bash
-docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f Dockerfile.base -t devenv-base .
+docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f docker/devenv/Dockerfile.base -t devenv-base .
 ```
 
 ## Security
@@ -262,7 +252,7 @@ docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f Dock
 To remove devenv:
 
 ```bash
-~/.config/devenv/install-devenv --uninstall
+./scripts/install-devenv --uninstall
 ```
 
 Or manually:

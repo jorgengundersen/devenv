@@ -4,32 +4,20 @@ set -euo pipefail
 # install-devenv - Installation script for containerized development environment
 
 # --- Constants ---
-readonly DEFAULT_DEVENV_HOME="${HOME}/.config/devenv"
+DEVENV_HOME="${DEVENV_HOME:-$(
+    script_path="${BASH_SOURCE[0]}"
+    if command -v readlink >/dev/null 2>&1; then
+        script_path=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+    fi
+    script_dir=$(cd "$(dirname "${script_path}")" && pwd)
+    cd "${script_dir}/.." && pwd
+)}"
+readonly DEVENV_HOME
 readonly LOCAL_BIN="${HOME}/.local/bin"
 
 # --- Logging ---
-declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
-readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
-
-# Emit a structured log line if it meets the current log level.
-_log() {
-    local level="$1"; shift
-    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
-        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
-    fi
-}
-
-# Log a debug message.
-log_debug() { _log "DEBUG" "$@"; }
-# Log an info message.
-log_info() { _log "INFO" "$@"; }
-# Log a warning message.
-log_warning() { _log "WARNING" "$@"; }
-# Log an error message.
-log_error() { _log "ERROR" "$@"; }
-
-# Log error and exit.
-die() { _log "ERROR" "$@"; exit 1; }
+# shellcheck disable=SC1091
+. "${DEVENV_HOME}/shared/bash/log.sh"
 
 # --- Primitives ---
 # Print usage information.
@@ -41,12 +29,12 @@ Install devenv scripts by creating symlinks in ~/.local/bin/.
 
 Options:
     --help, -h          Show this help message
-    --source, -s        Source directory for scripts (default: ~/.config/devenv)
+    --source, -s        Repository root (default: repository root containing this script)
     --uninstall         Remove symlinks (uninstall)
 
 The following symlinks will be created:
-    ~/.local/bin/build-devenv -> <source>/build-devenv
-    ~/.local/bin/devenv -> <source>/devenv
+    ~/.local/bin/build-devenv -> <source>/bin/build-devenv
+    ~/.local/bin/devenv -> <source>/bin/devenv
 
 Note: Ensure ~/.local/bin is in your PATH.
 EOF
@@ -63,11 +51,11 @@ install_devenv() {
         mkdir -p "${LOCAL_BIN}"
     fi
 
-    if [[ ! -f "${source_dir}/build-devenv" ]]; then
-        die "build-devenv script not found at ${source_dir}/build-devenv"
+    if [[ ! -f "${source_dir}/bin/build-devenv" ]]; then
+        die "build-devenv script not found at ${source_dir}/bin/build-devenv"
     fi
-    if [[ ! -f "${source_dir}/devenv" ]]; then
-        die "devenv script not found at ${source_dir}/devenv"
+    if [[ ! -f "${source_dir}/bin/devenv" ]]; then
+        die "devenv script not found at ${source_dir}/bin/devenv"
     fi
 
     local build_devenv_link="${LOCAL_BIN}/build-devenv"
@@ -88,15 +76,13 @@ install_devenv() {
     fi
 
     log_info "Creating symlink: ${build_devenv_link}"
-    ln -s "${source_dir}/build-devenv" "${build_devenv_link}"
+    ln -s "${source_dir}/bin/build-devenv" "${build_devenv_link}"
 
     log_info "Creating symlink: ${devenv_link}"
-    ln -s "${source_dir}/devenv" "${devenv_link}"
+    ln -s "${source_dir}/bin/devenv" "${devenv_link}"
 
     log_info "Installation completed successfully!"
-    log_info "Available commands:"
-    log_info "  build-devenv --help"
-    log_info "  devenv --help"
+    log_info "Available commands: build-devenv, devenv"
 
     if [[ ":${PATH}:" != *":${LOCAL_BIN}:"* ]]; then
         log_warning "${LOCAL_BIN} is not in your PATH."
@@ -132,7 +118,7 @@ uninstall_devenv() {
 # --- Entrypoint ---
 # Dispatch install or uninstall operations.
 main() {
-    local source_dir="${DEFAULT_DEVENV_HOME}"
+    local source_dir="${DEVENV_HOME}"
     local do_uninstall=false
 
     while [[ $# -gt 0 ]]; do

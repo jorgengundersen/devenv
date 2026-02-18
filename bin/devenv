@@ -4,35 +4,26 @@ set -euo pipefail
 # devenv - Runtime environment launcher for containerized development
 
 # --- Constants ---
+DEVENV_HOME="${DEVENV_HOME:-$(
+    script_path="${BASH_SOURCE[0]}"
+    if command -v readlink >/dev/null 2>&1; then
+        script_path=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+    fi
+    script_dir=$(cd "$(dirname "${script_path}")" && pwd)
+    cd "${script_dir}/.." && pwd
+)}"
+readonly DEVENV_HOME
 readonly IMAGE_PREFIX="devenv"
 readonly VOLUME_DATA="devenv-data"
 readonly VOLUME_CACHE="devenv-cache"
 readonly VOLUME_STATE="devenv-state"
-readonly VOLUME_TVIM_LOCK="devenv-tvim-lock"
+readonly DEFAULT_MEMORY="8g"
+readonly DEFAULT_MEMORY_SWAP="12g"
+readonly DEFAULT_CPUS="4"
 
 # --- Logging ---
-declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
-readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
-
-# Emit a structured log line if it meets the current log level.
-_log() {
-    local level="$1"; shift
-    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
-        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
-    fi
-}
-
-# Log a debug message.
-log_debug() { _log "DEBUG" "$@"; }
-# Log an info message.
-log_info() { _log "INFO" "$@"; }
-# Log a warning message.
-log_warning() { _log "WARNING" "$@"; }
-# Log an error message.
-log_error() { _log "ERROR" "$@"; }
-
-# Log error and exit.
-die() { _log "ERROR" "$@"; exit 1; }
+# shellcheck disable=SC1091
+. "${DEVENV_HOME}/shared/bash/log.sh"
 
 # --- Primitives ---
 # Print usage information.
@@ -62,6 +53,11 @@ Examples:
     devenv stop .
     devenv stop --all
     devenv volume list
+
+Resource Limits (override via environment variables):
+    DEVENV_MEMORY         Container memory limit   (default: ${DEFAULT_MEMORY})
+    DEVENV_MEMORY_SWAP    Memory + swap limit       (default: ${DEFAULT_MEMORY_SWAP})
+    DEVENV_CPUS           CPU core limit            (default: ${DEFAULT_CPUS})
 
 Notes:
     Containers run in the background and persist until stopped.
@@ -100,6 +96,20 @@ resolve_project_path() {
 
     path=$(cd "${path}" && pwd)
     printf '%s' "${path}"
+}
+
+# Resolve the container-side project path by mirroring host HOME-relative path.
+resolve_container_project_path() {
+    local project_path="$1"
+    local home_prefix relative_project_path
+
+    home_prefix="${HOME}/"
+    if [[ "${project_path}" != "${home_prefix}"* ]]; then
+        die "Project path must be under ${HOME}: ${project_path}"
+    fi
+
+    relative_project_path="${project_path#"${home_prefix}"}"
+    printf '/home/devuser/%s' "${relative_project_path}"
 }
 
 # Derive a container name from project path.
@@ -164,15 +174,31 @@ is_container_running() {
 # Build docker mount flags into an array.
 build_mounts() {
     local project_path="$1"
-    local project_name="$2"
-    local -n mounts_ref="$3"
+    local container_project_path
+    local -n mounts_ref="$2"
 
     mounts_ref=()
+    container_project_path=$(resolve_container_project_path "${project_path}")
+
     # Persistent named volumes (shared across all devenv containers).
     mounts_ref+=("-v" "${VOLUME_DATA}:/home/devuser/.local/share")
     mounts_ref+=("-v" "${VOLUME_CACHE}:/home/devuser/.cache")
     mounts_ref+=("-v" "${VOLUME_STATE}:/home/devuser/.local/state")
-    mounts_ref+=("-v" "${project_path}:/workspaces/${project_name}:rw")
+    mounts_ref+=("-v" "${project_path}:${container_project_path}:rw")
+
+    if [[ -f "${HOME}/.gitconfig" ]]; then
+        mounts_ref+=("-v" "${HOME}/.gitconfig:/home/devuser/.gitconfig:ro")
+    fi
+    local gitconfig_file
+    for gitconfig_file in "${HOME}"/.gitconfig-*; do
+        if [[ -f "${gitconfig_file}" ]]; then
+            local filename="${gitconfig_file##*/}"
+            mounts_ref+=("-v" "${gitconfig_file}:/home/devuser/${filename}:ro")
+        fi
+    done
+    if [[ -f "${HOME}/.config/git/config" ]]; then
+        mounts_ref+=("-v" "${HOME}/.config/git/config:/home/devuser/.config/git/config:ro")
+    fi
 
     if [[ -f "${HOME}/.bashrc" ]]; then
         mounts_ref+=("-v" "${HOME}/.bashrc:/home/devuser/.bashrc:ro")
@@ -185,10 +211,6 @@ build_mounts() {
     fi
     if [[ -d "${HOME}/.config/nvim" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/nvim:/home/devuser/.config/nvim:ro")
-    fi
-    if [[ -d "${HOME}/.config/tvim" ]]; then
-        mounts_ref+=("-v" "${HOME}/.config/tvim:/home/devuser/.config/tvim:ro")
-        mounts_ref+=("-v" "${VOLUME_TVIM_LOCK}:/home/devuser/.config/tvim/lazy-lock.json")
     fi
     if [[ -d "${HOME}/.config/starship" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/starship:/home/devuser/.config/starship:ro")
@@ -227,7 +249,7 @@ build_env_vars() {
 # Create devenv-managed Docker volumes if they do not already exist.
 ensure_volumes() {
     local vol
-    for vol in "${VOLUME_DATA}" "${VOLUME_CACHE}" "${VOLUME_STATE}" "${VOLUME_TVIM_LOCK}"; do
+    for vol in "${VOLUME_DATA}" "${VOLUME_CACHE}" "${VOLUME_STATE}"; do
         if ! docker volume inspect "${vol}" >/dev/null 2>&1; then
             docker volume create --label devenv=true "${vol}" >/dev/null
             log_info "Created volume: ${vol}"
@@ -284,22 +306,29 @@ start_container() {
     local container_name="$2"
     local image_name="$3"
     local ssh_port="$4"
-    local project_name project_label
+    local container_project_path="$5"
+    local project_label
     local -a mounts env_vars
 
-    project_name="${project_path##*/}"
     project_label=$(derive_project_label "${project_path}")
 
-    build_mounts "${project_path}" "${project_name}" mounts
+    build_mounts "${project_path}" mounts
     build_env_vars env_vars
+
+    local mem="${DEVENV_MEMORY:-${DEFAULT_MEMORY}}"
+    local mem_swap="${DEVENV_MEMORY_SWAP:-${DEFAULT_MEMORY_SWAP}}"
+    local cpus="${DEVENV_CPUS:-${DEFAULT_CPUS}}"
 
     if [[ -n "${ssh_port}" ]]; then
         docker run -d --rm \
             --name "${container_name}" \
             --label devenv=true \
             --label "devenv.project=${project_label}" \
+            --memory "${mem}" \
+            --memory-swap "${mem_swap}" \
+            --cpus "${cpus}" \
             --user devuser:devuser \
-            --workdir "/workspaces/${project_name}" \
+            --workdir "${container_project_path}" \
             -p "127.0.0.1:${ssh_port}:22" \
             "${mounts[@]}" \
             "${env_vars[@]}" \
@@ -311,8 +340,11 @@ start_container() {
             --name "${container_name}" \
             --label devenv=true \
             --label "devenv.project=${project_label}" \
+            --memory "${mem}" \
+            --memory-swap "${mem_swap}" \
+            --cpus "${cpus}" \
             --user devuser:devuser \
-            --workdir "/workspaces/${project_name}" \
+            --workdir "${container_project_path}" \
             "${mounts[@]}" \
             "${env_vars[@]}" \
             --network bridge \
@@ -324,8 +356,8 @@ start_container() {
 # Attach to a running container with a login shell.
 attach_container() {
     local container_name="$1"
-    local project_name="$2"
-    docker exec -it --workdir "/workspaces/${project_name}" "${container_name}" bash --login
+    local container_project_path="$2"
+    docker exec -it --workdir "${container_project_path}" "${container_name}" bash --login
 }
 
 # --- Commands ---
@@ -358,18 +390,18 @@ cmd_start() {
     shift $((OPTIND - 1))
 
     local path_arg="${1:-.}"
-    local project_path container_name project_name image_name ssh_port
+    local project_path container_name image_name ssh_port container_project_path
 
     project_path=$(resolve_project_path "${path_arg}") || die "Project path does not exist: ${path_arg}"
     container_name=$(derive_container_name "${project_path}") || die "Unable to derive container name"
-    project_name="${project_path##*/}"
+    container_project_path=$(resolve_container_project_path "${project_path}")
 
     if is_container_running "${container_name}"; then
         if [[ -n "${port_override}" ]]; then
             log_warning "Container already running; --port flag ignored"
         fi
         log_info "Attaching to ${container_name}"
-        attach_container "${container_name}" "${project_name}"
+        attach_container "${container_name}" "${container_project_path}"
         return
     fi
 
@@ -398,11 +430,11 @@ cmd_start() {
     fi
 
     ensure_volumes
-    start_container "${project_path}" "${container_name}" "${image_name}" "${ssh_port}"
+    start_container "${project_path}" "${container_name}" "${image_name}" "${ssh_port}" "${container_project_path}"
     if [[ -n "${ssh_port}" ]]; then
         printf '%s\n' "SSH: 127.0.0.1:${ssh_port}"
     fi
-    attach_container "${container_name}" "${project_name}"
+    attach_container "${container_name}" "${container_project_path}"
 }
 
 # List running devenv containers.

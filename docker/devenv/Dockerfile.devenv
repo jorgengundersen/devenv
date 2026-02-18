@@ -180,20 +180,20 @@ RUN chmod +x /usr/local/bin/* 2>/dev/null || true
 # Ensure Neovim runtime files are discoverable
 RUN ln -sf /opt/nvim-linux-x86_64/share/nvim /usr/local/share/nvim
 
-# Provide a wrapper for tvim (NVIM_APPNAME=tvim)
-RUN printf '%s\n' \
-    '#!/bin/bash' \
-    'set -euo pipefail' \
-    'exec env NVIM_APPNAME=tvim nvim "$@"' \
-    > /usr/local/bin/tvim \
-    && chmod +x /usr/local/bin/tvim
+# Pre-create XDG volume mount points so Docker initialises named volumes
+# with devuser ownership instead of root (prevents permission errors for
+# tools like starship that write to ~/.cache at runtime).
+RUN mkdir -p /home/devuser/.cache \
+    /home/devuser/.local/bin \
+    /home/devuser/.local/share \
+    /home/devuser/.local/share/opencode/log \
+    /home/devuser/.local/state
 
 # Provide common env file locations referenced by host dotfiles
-RUN mkdir -p /home/devuser/.cargo /home/devuser/.local/bin /home/devuser/.local/share \
-    /home/devuser/.local/share/opencode/log \
+RUN mkdir -p /home/devuser/.cargo \
     && ln -sf /usr/local/cargo/env /home/devuser/.cargo/env \
     && touch /home/devuser/.local/bin/env \
-    && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local
+    && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local /home/devuser/.cache
 
 # Change ownership to devuser - only chown the binaries and top-level dirs
 RUN chown -R devuser:devuser /usr/local/bin \

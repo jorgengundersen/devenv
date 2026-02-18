@@ -4,32 +4,20 @@ set -euo pipefail
 # build-devenv - Build management script for containerized development environment
 
 # --- Constants ---
-readonly DEVENV_HOME="${HOME}/.config/devenv"
+DEVENV_HOME="${DEVENV_HOME:-$(
+    script_path="${BASH_SOURCE[0]}"
+    if command -v readlink >/dev/null 2>&1; then
+        script_path=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+    fi
+    script_dir=$(cd "$(dirname "${script_path}")" && pwd)
+    cd "${script_dir}/.." && pwd
+)}"
+readonly DEVENV_HOME
 readonly IMAGE_PREFIX="devenv"
 
 # --- Logging ---
-declare -A _LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARNING]=2 [ERROR]=3)
-readonly DEVENV_LOG_LEVEL="${DEVENV_LOG_LEVEL:-WARNING}"
-
-# Emit a structured log line if it meets the current log level.
-_log() {
-    local level="$1"; shift
-    if (( _LOG_LEVELS[${level}] >= _LOG_LEVELS[${DEVENV_LOG_LEVEL}] )); then
-        printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
-    fi
-}
-
-# Log a debug message.
-log_debug() { _log "DEBUG" "$@"; }
-# Log an info message.
-log_info() { _log "INFO" "$@"; }
-# Log a warning message.
-log_warning() { _log "WARNING" "$@"; }
-# Log an error message.
-log_error() { _log "ERROR" "$@"; }
-
-# Log error and exit.
-die() { _log "ERROR" "$@"; exit 1; }
+# shellcheck disable=SC1091
+. "${DEVENV_HOME}/shared/bash/log.sh"
 
 # --- Primitives ---
 # Print usage information.
@@ -53,7 +41,8 @@ Examples:
     build-devenv --tool nvim
     build-devenv --project ./my-project
 
-Note: The build context is always ~/.config/devenv
+Note: The build context defaults to the repository root.
+    Override with DEVENV_HOME=/path/to/repo.
 EOF
 }
 
@@ -112,7 +101,7 @@ derive_project_image_suffix() {
 build_stage_base() {
     log_info "Building base image..."
 
-    local dockerfile="${DEVENV_HOME}/Dockerfile.base"
+    local dockerfile="${DEVENV_HOME}/docker/devenv/Dockerfile.base"
     if [[ ! -f "${dockerfile}" ]]; then
         die "Base Dockerfile not found: ${dockerfile}"
     fi
@@ -139,7 +128,7 @@ build_stage_devenv() {
         build_stage_base
     fi
 
-    local dockerfile="${DEVENV_HOME}/Dockerfile.devenv"
+    local dockerfile="${DEVENV_HOME}/docker/devenv/Dockerfile.devenv"
     if [[ ! -f "${dockerfile}" ]]; then
         die "Devenv Dockerfile not found: ${dockerfile}"
     fi
@@ -160,7 +149,7 @@ build_stage_devenv() {
 # Build a specific tool image.
 build_tool() {
     local tool="$1"
-    local dockerfile="${DEVENV_HOME}/tools/Dockerfile.${tool}"
+    local dockerfile="${DEVENV_HOME}/shared/tools/Dockerfile.${tool}"
 
     if [[ ! -f "${dockerfile}" ]]; then
         die "Tool Dockerfile not found: ${dockerfile}"
