@@ -1,5 +1,8 @@
 ---
 description: Stage changes and create professional commits
+agent: build
+model: github-copilot/claude-haiku-4.5
+subtask: true
 ---
 
 You are acting inside an OpenCode session with access to bash.

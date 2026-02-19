@@ -1,6 +1,6 @@
 ---
 description: Create a research document (gap analysis) from a spec
-subtask: true
+model: github-copilot/claude-opus-4.6
 ---
 
 Create a research document based on the spec provided as argument.
