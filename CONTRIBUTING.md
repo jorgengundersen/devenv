@@ -8,7 +8,7 @@ Before making changes, read these documents:
 
 - [specs/coding-standard.md](specs/coding-standard.md) -- mandatory coding
   rules for Bash scripts and Dockerfiles
-- [specs/spec.md](specs/spec.md) -- system design and architecture
+- [specs/devenv-architecture.md](specs/devenv-architecture.md) -- system design and architecture
 
 ## Architecture overview
 

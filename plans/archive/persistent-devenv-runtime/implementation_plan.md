@@ -5,7 +5,7 @@ This plan is based on the research document and is intended for a delegated impl
 ## Required Resources (Read First)
 
 - [specs/coding-standard.md](specs/coding-standard.md)
-- [specs/spec.md](specs/spec.md)
+- [specs/devenv-architecture.md](specs/devenv-architecture.md)
 - [plans/research.md](plans/research.md)
 - [plans/summary.md](plans/summary.md)
 - [devenv](devenv)
@@ -420,7 +420,7 @@ Verification:
 - [ ] Add a short note on the persistent container lifecycle.
 
 Verification:
-- [ ] Help output matches [specs/spec.md](specs/spec.md) runtime interface.
+- [ ] Help output matches [specs/devenv-architecture.md](specs/devenv-architecture.md) runtime interface.
 
 ---
 

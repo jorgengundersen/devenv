@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+
+# Tool: common-utils
+# Installs a baseline of small CLI utilities expected in most environments.
+
+FROM devenv-base:latest AS tool_common_utils
+LABEL devenv=true
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tree \
+        less \
+        man-db \
+        file \
+        unzip \
+        zip \
+        procps \
+        lsof \
+        iproute2 \
+        iputils-ping \
+        dnsutils \
+        netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+USER devuser

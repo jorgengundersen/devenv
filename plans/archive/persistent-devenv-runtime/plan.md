@@ -6,7 +6,7 @@ Before executing any phase, the agent MUST read and internalize:
 
 1. `specs/coding-standard.md` — authoritative coding standard. All code must conform. No exceptions.
 2. `plans/summary.md` — comprehensive conversation summary with all decisions, tradeoffs, and rationale
-3. The current source files: `devenv`, `build-devenv`, `install-devenv`, `specs/spec.md`, `README.md`
+3. The current source files: `devenv`, `build-devenv`, `install-devenv`, `specs/devenv-architecture.md`, `README.md`
 4. The current Dockerfiles: `Dockerfile.base`, `Dockerfile.devenv`, and all `tools/Dockerfile.*`
 
 ## Guiding Principles
@@ -22,7 +22,7 @@ Agents must read and internalize `specs/coding-standard.md` before executing any
 
 ---
 
-## Phase 1: Create New Specification (`specs/spec.md`)
+## Phase 1: Create New Specification (`specs/devenv-architecture.md`)
 
 ### Goal
 
@@ -31,7 +31,7 @@ Create a comprehensive specification document that reflects ALL decisions from t
 ### Instructions
 
 1. Remove any archived spec file if present (`rm -f specs/archived_spec.md`)
-2. Create a new `specs/spec.md` that covers everything below
+2. Create a new `specs/devenv-architecture.md` that covers everything below
 
 ### Required Content
 
@@ -177,7 +177,7 @@ Carry forward
 
 ### Verification
 
-- The new spec must be self-contained — a developer unfamiliar with the project should be able to understand the entire system by reading only `specs/spec.md`
+- The new spec must be self-contained — a developer unfamiliar with the project should be able to understand the entire system by reading only `specs/devenv-architecture.md`
 - Every decision from `plans/summary.md` must be reflected in the spec
 - No information from the prior archived spec should be lost unless it contradicts a decision from the summary
 
@@ -193,7 +193,7 @@ Analyze the gap between the new specification (Phase 1 output) and the current i
 
 Read the following files completely and produce analysis:
 
-1. New `specs/spec.md` (Phase 1 output)
+1. New `specs/devenv-architecture.md` (Phase 1 output)
 2. `devenv` (228 lines)
 3. `build-devenv` (219 lines)
 4. `install-devenv` (144 lines)
@@ -305,7 +305,7 @@ Order tasks to minimize conflicts and enable incremental verification.
 Suggested task ordering:
 
 1. **T1: Remove archived spec** — `rm -f specs/archived_spec.md` (no code)
-2. **T2: Create new specs/spec.md** — Write the complete spec per Phase 1 instructions
+2. **T2: Create new specs/devenv-architecture.md** — Write the complete spec per Phase 1 instructions
 3. **T3: Add `derive_container_name()` to `devenv`** — New helper function
 4. **T4: Add `derive_project_identity()` to `devenv`** — New helper function  
 5. **T5: Add `allocate_ssh_port()` to `devenv`** — Port pre-allocation function
@@ -392,7 +392,7 @@ Provide precise instructions for a coding agent (with subagents) to implement th
 1. Read ALL of these files before writing any code:
   - `specs/coding-standard.md` (authoritative coding standard — read first)
   - `plans/summary.md`
-  - `specs/spec.md` (the new one from Phase 1)
+  - `specs/devenv-architecture.md` (the new one from Phase 1)
   - `plans/research.md` (from Phase 2)
   - `plans/implementation_plan.md` (from Phase 3)
 
@@ -457,7 +457,7 @@ After completing all implementation tasks:
 
 The implementation is complete when:
 1. Archived spec removed (no stale references)
-2. `specs/spec.md` is the new comprehensive spec
+2. `specs/devenv-architecture.md` is the new comprehensive spec
 3. `plans/research.md` documents the gap analysis
 4. `plans/implementation_plan.md` lists all tasks in order with details
 5. `devenv` script implements the new lifecycle, all commands, port pre-allocation

@@ -6,6 +6,25 @@
 # Stage 1: Base image
 FROM devenv-base:latest AS devenv-base
 
+# Stage 1.5: Common CLI utilities
+FROM devenv-base:latest AS common_utils
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tree \
+        less \
+        man-db \
+        file \
+        unzip \
+        zip \
+        procps \
+        lsof \
+        iproute2 \
+        iputils-ping \
+        dnsutils \
+        netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
 # Stage 2: Runtime and build tools (can be built in parallel)
 FROM devenv-base:latest AS tool_cargo
 USER root
@@ -140,7 +159,7 @@ RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
     && ln -sf /opt/node/bin/tree-sitter /usr/local/bin/tree-sitter
 
 # Final stage: Compose all tools
-FROM devenv-base:latest AS devenv
+FROM common_utils AS devenv
 
 # Label for filtering devenv images
 LABEL devenv=true

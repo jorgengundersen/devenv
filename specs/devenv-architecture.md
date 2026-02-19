@@ -30,6 +30,7 @@ devenv/
 ├── shared/
 │   └── tools/                   # Tool-specific Dockerfiles
 │       ├── Dockerfile.cargo
+│       ├── Dockerfile.common-utils
 │       ├── Dockerfile.copilot-cli
 │       ├── Dockerfile.fnm
 │       ├── Dockerfile.fzf
@@ -50,7 +51,7 @@ devenv/
 └── specs/                       # Specification documents
     ├── README.md                # Spec index
     ├── coding-standard.md       # Authoritative coding standard
-    └── spec.md                  # This file
+    └── devenv-architecture.md    # This file
 ```
 
 ### Build Pipeline
@@ -60,17 +61,20 @@ The build pipeline follows a layered architecture:
 ```
 docker/devenv/Dockerfile.base (Ubuntu + devuser + SSH)
     ↓
-shared/tools/Dockerfile.* (one tool per Dockerfile)
+docker/devenv/Dockerfile.devenv (common_utils stage, FROM devenv-base)
     ↓
-docker/devenv/Dockerfile.devenv (aggregates all tools via multi-stage COPY)
+shared/tools/Dockerfile.* (one tool per Dockerfile, built independently)
+    ↓
+docker/devenv/Dockerfile.devenv (devenv stage, FROM common_utils, aggregates tools via multi-stage COPY)
     ↓
 <project>/.devenv/Dockerfile (extends devenv with project deps)
 ```
 
 1. **Base Image** — Foundation OS with user setup and SSH server.
-2. **Tool Images** — Each tool is built independently from the base image using multi-stage syntax.
-3. **Development Environment** — `docker/devenv/Dockerfile.devenv` composes all tool artifacts into a single image via `COPY --from` instructions.
-4. **Project Extensions** — Project-specific Dockerfiles extend `devenv:latest` with additional dependencies.
+2. **Common Utils Stage** — `docker/devenv/Dockerfile.devenv (common_utils stage)` installs a baseline of small CLI utilities on top of the base image.
+3. **Tool Images** — Each tool is built independently from the base image using multi-stage syntax.
+4. **Development Environment** — `docker/devenv/Dockerfile.devenv` final stage composes all tool artifacts into a single image via `COPY --from` instructions, starting from `common_utils`.
+5. **Project Extensions** — Project-specific Dockerfiles extend `devenv:latest` with additional dependencies.
 
 ## Design Principles
 
@@ -142,7 +146,9 @@ Tools must be built in dependency order:
 1. **Stage 1 (Base):** `base` — Foundation image with OS and user setup
 2. **Stage 2 (Runtimes & Build Tools):** `cargo`, `go`, `fnm`, `uv`, `jq` — Language runtimes and essential build tools (can be parallel)
 3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
-4. **Stage 4 (Standalone):** `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf` — Independent tools (can be parallel)
+4. **Stage 4 (Standalone):** `common-utils`, `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf` — Independent tools (can be parallel)
+
+Note: `common-utils` is also built as part of `docker/devenv/Dockerfile.devenv` as the `common_utils` intermediate stage. The `--tool common-utils` build target produces a standalone tool image for isolated testing.
 
 **Installation Dependencies:**
 
@@ -406,6 +412,7 @@ build-devenv --project <path>  # Build project-specific image
 ```bash
 build-devenv --stage base      # Build docker/devenv/Dockerfile.base
 build-devenv --stage devenv    # Build docker/devenv/Dockerfile.devenv
+build-devenv --tool common-utils  # Build shared/tools/Dockerfile.common-utils
 build-devenv --tool nvim       # Build shared/tools/Dockerfile.nvim
 build-devenv --project ./my-project  # Build project/.devenv/Dockerfile
 ```

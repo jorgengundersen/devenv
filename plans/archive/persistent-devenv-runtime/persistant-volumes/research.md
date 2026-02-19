@@ -5,7 +5,7 @@ This document analyzes the gap between `specs/persistent-volumes.md` and the cur
 ## Scope and Method
 
 - Source spec: `specs/persistent-volumes.md`
-- Current implementation reviewed: `devenv`, `README.md`, `specs/spec.md`, `specs/coding-standard.md`, `CONTRIBUTING.md`
+- Current implementation reviewed: `devenv`, `README.md`, `specs/devenv-architecture.md`, `specs/coding-standard.md`, `CONTRIBUTING.md`
 - Goal: identify required changes, not implement them in this document.
 
 ## Executive Summary
@@ -102,7 +102,7 @@ Primary gaps:
 
 ### 3) Authoritative Spec Sync
 
-#### `specs/spec.md`
+#### `specs/devenv-architecture.md`
 
 - **Configuration Mount Points section** line 354 onward:
   - Currently states tvim is read-write.
@@ -200,7 +200,7 @@ Expected behavior from spec and current implementation status:
 2. Add `devenv volume` command family in `devenv`.
 3. Apply tvim `:ro` mount + `devenv-tvim-lock` named volume overlay for `lazy-lock.json`.
 4. Update `README.md` user-facing command and mount docs.
-5. Update `specs/spec.md` and `specs/coding-standard.md` for consistency.
+5. Update `specs/devenv-architecture.md` and `specs/coding-standard.md` for consistency.
 6. Update `CONTRIBUTING.md` guidance.
 
 ## Risk Notes

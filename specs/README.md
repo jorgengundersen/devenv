@@ -2,8 +2,9 @@
 
 This directory contains the authoritative specifications for devenv.
 
-- [specs/spec.md](specs/spec.md) - primary system specification
+- [specs/devenv-architecture.md](specs/devenv-architecture.md) - primary system specification
 - [specs/coding-standard.md](specs/coding-standard.md) - coding rules and safety requirements
 - [specs/persistent-volumes.md](specs/persistent-volumes.md) - persistent Docker volumes for tool state
+- [specs/common-utils.md](specs/common-utils.md) - common CLI utilities baseline stage
 
 Related planning and research documents live in `plans`.

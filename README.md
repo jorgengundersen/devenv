@@ -104,6 +104,7 @@ devenv/
 └── shared/
     └── tools/                   # Tool-specific Dockerfiles
         ├── Dockerfile.cargo
+        ├── Dockerfile.common-utils
         ├── Dockerfile.copilot-cli
         ├── Dockerfile.fnm
         ├── Dockerfile.gh
@@ -122,6 +123,7 @@ devenv/
 ## Available Tools
 
 - **cargo** - Rust toolchain and package manager
+- **common-utils** - Baseline CLI utilities (tree/less/man/file/network tools)
 - **copilot-cli** - GitHub Copilot CLI
 - **fnm** - Fast Node Manager
 - **gh** - GitHub CLI
@@ -145,6 +147,7 @@ Build Docker images for the development environment.
 ```bash
 build-devenv --stage base      # Build base image
 build-devenv --stage devenv    # Build complete environment
+build-devenv --tool common-utils  # Build common-utils tool image
 build-devenv --tool nvim       # Build specific tool
 build-devenv --project ./my-project  # Build project-specific image
 ```

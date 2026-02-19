@@ -384,11 +384,11 @@ Also update the Configuration Mount Points table row for tvim if it says "read-w
 
 ## Phase 3: Spec Sync
 
-### Task 3.1: Update `specs/spec.md` -- Configuration Mount Points
+### Task 3.1: Update `specs/devenv-architecture.md` -- Configuration Mount Points
 
 - [ ] Update the tvim mount description in the Configuration Mount Points section to reflect `:ro`.
 
-**File:** `specs/spec.md`
+**File:** `specs/devenv-architecture.md`
 **Location:** Line 356: `Tool configurations are provided by the host system and mounted at container runtime. Mount points use equivalent paths in the container. Most mounts are read-only; tvim is read-write to allow plugin installs and lockfile updates:`
 
 **Change to:**
@@ -399,11 +399,11 @@ Tool configurations are provided by the host system and mounted at container run
 
 ---
 
-### Task 3.2: Update `specs/spec.md` -- Docker Run Command Structure
+### Task 3.2: Update `specs/devenv-architecture.md` -- Docker Run Command Structure
 
 - [ ] Add the three named volume mounts and the tvim lockfile overlay to the Docker Run Command Structure example.
 
-**File:** `specs/spec.md`
+**File:** `specs/devenv-architecture.md`
 **Location:** The `docker run` example starting at line 497. Add volume mounts after the `--label` lines and before the project bind mount.
 
 **Add these lines after `--label devenv.project=<parent>/<project> \`:**
@@ -437,11 +437,11 @@ Add a new row: `| `-v` (volumes) | Persistent named volumes for XDG data, cache,
 
 ---
 
-### Task 3.3: Update `specs/spec.md` -- Command Structure
+### Task 3.3: Update `specs/devenv-architecture.md` -- Command Structure
 
 - [ ] Add `devenv volume` commands to the Command Structure section.
 
-**File:** `specs/spec.md`
+**File:** `specs/devenv-architecture.md`
 **Location:** Command Structure section starting at line 420. Add after the `devenv help` line.
 
 **Add:**

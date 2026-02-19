@@ -31,13 +31,14 @@ Options:
     --stage <stage>      Build base or devenv stage
                          Valid stages: base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                         Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, tree-sitter, uv, yq
+                         Valid tools: cargo, common-utils, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --help               Show this help message
 
 Examples:
     build-devenv --stage base
     build-devenv --stage devenv
+    build-devenv --tool common-utils
     build-devenv --tool nvim
     build-devenv --project ./my-project
 

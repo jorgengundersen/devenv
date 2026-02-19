@@ -121,7 +121,7 @@ devenv help               # show help
 | `devenv` | Runtime launcher | 228 lines |
 | `build-devenv` | Build management | 219 lines |
 | `install-devenv` | Installation script | 144 lines |
-| `spec.md` | Specification | 588 lines |
+| `devenv-architecture.md` | Specification | 588 lines |
 | `README.md` | User documentation | 213 lines |
 | `Dockerfile.base` | Base OS image | exists |
 | `Dockerfile.devenv` | Complete environment | exists |

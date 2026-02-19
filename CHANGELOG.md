@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.4.0] - 2026-02-19
+
+### Added
+- `common-utils` tool Dockerfile (`shared/tools/Dockerfile.common-utils`) with a curated baseline of CLI utilities: `tree`, `less`, `man-db`, `file`, `unzip`, `zip`, `procps`, `lsof`, `iproute2`, `iputils-ping`, `dnsutils`, `netcat-openbsd`.
+- `common_utils` intermediate build stage in `docker/devenv/Dockerfile.devenv`; the final `devenv` stage now bases on `common_utils` so all baseline utilities are available at runtime.
+- `specs/common-utils.md` specification documenting the stage design, package set, and exclusions.
+- Planning docs under `plans/current/common-utils/` (research and implementation plan).
+
+### Changed
+- Final stage in `docker/devenv/Dockerfile.devenv` changed from `FROM devenv-base:latest` to `FROM common_utils`.
+- `bin/build-devenv` tool list updated to include `common-utils`.
+- `README.md` updated to list `common-utils` under Available Tools and reflect the updated build pipeline.
+- `specs/devenv-architecture.md` (renamed from `specs/spec.md`) updated to document the new `common_utils` stage in the build pipeline, file tree, and tool table.
+- `specs/README.md` updated to reference renamed architecture spec.
+- `AGENTS.md` updated with GAP analysis and checkmark usage guidelines.
+- `CONTRIBUTING.md` updated to reference `specs/devenv-architecture.md`.
+
+### Removed
+- `proposal.md` removed (superseded by spec and planning docs).
+
 ## [1.3.0] - 2026-02-18
 
 ### Breaking

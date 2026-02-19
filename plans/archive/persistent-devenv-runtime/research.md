@@ -1,6 +1,6 @@
 # Research Document: Gap Analysis & Implementation Guide
 
-This document analyzes the gap between the new specification (`specs/spec.md`) and the current implementation. It provides a detailed mapping that an implementation agent can use to execute changes precisely.
+This document analyzes the gap between the new specification (`specs/devenv-architecture.md`) and the current implementation. It provides a detailed mapping that an implementation agent can use to execute changes precisely.
 
 Source files analyzed:
 
@@ -10,7 +10,7 @@ Source files analyzed:
 | `build-devenv` | 219 | Build management |
 | `install-devenv` | 144 | Symlink installer |
 | `README.md` | 213 | User documentation |
-| `specs/spec.md` | 660 | New specification (Phase 1 output) |
+| `specs/devenv-architecture.md` | 660 | New specification (Phase 1 output) |
 | `specs/coding-standard.md` | 448 | Authoritative coding standard |
 
 ---

@@ -18,7 +18,7 @@ Mirror the `$HOME`-relative project path inside the container and mount host git
 
 ## Required Reading
 
-- [specs/spec.md](../../specs/spec.md) — current spec (all `/workspaces` references)
+- [specs/devenv-architecture.md](../../specs/devenv-architecture.md) — current spec (all `/workspaces` references)
 - [specs/coding-standard.md](../../specs/coding-standard.md) — bash coding standard
 - [bin/devenv](../../bin/devenv) — runtime launcher (primary target)
 - [docker/devenv/Dockerfile.base](../../docker/devenv/Dockerfile.base) — base image
@@ -92,11 +92,11 @@ Mount the host git configuration files into the container as read-only.
   fi
   ```
 
-### Task 4: Update `specs/spec.md`
+### Task 4: Update `specs/devenv-architecture.md`
 
 Update the spec to reflect the new mount strategy and git config support.
 
-**File:** `specs/spec.md`
+**File:** `specs/devenv-architecture.md`
 
 - [ ] Update the "Configuration Mount Points" table (~line 363) to add git entries:
 
@@ -164,7 +164,7 @@ The following files have already been updated to reflect the new mount strategy 
 
 | File | Change |
 |------|--------|
-| `specs/spec.md` | Updated mount table, docker run structure, new Git Configuration section |
+| `specs/devenv-architecture.md` | Updated mount table, docker run structure, new Git Configuration section |
 | `specs/persistent-volumes.md` | Updated docker run command |
 | `specs/coding-standard.md` | Updated mount example |
 | `CONTRIBUTING.md` | Updated template instructions and base image section |
