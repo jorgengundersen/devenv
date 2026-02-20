@@ -80,6 +80,7 @@ All 16 tool Dockerfiles in `shared/tools/` use `FROM devenv-base:latest`. The tw
 | 24 | Directory structure: `docker/base/` directory | Does not exist. | **NEW** | Create `docker/base/` directory. |
 | 25 | Project auto-build: `--project <path>` resolves full chain for detected env type | Currently auto-builds `devenv:latest` chain only (lines 191-194). | **UPDATE** | Must auto-build `repo-base` -> `devenv-base` -> `devenv` chain. Currently missing `repo-base` step. |
 | 26 | `repo-base` label: `repo-base=true` | N/A — image doesn't exist. | **NEW** | Include `LABEL repo-base=true` in `docker/base/Dockerfile.base`. |
+| 27 | Standalone tool images use `LABEL tools=true` | All 16 `shared/tools/Dockerfile.*` currently have `LABEL devenv=true`. | **UPDATE** | Change `LABEL devenv=true` to `LABEL tools=true` in all 16 `shared/tools/Dockerfile.*` files. |
 
 ---
 
@@ -137,75 +138,92 @@ All 16 tool Dockerfiles in `shared/tools/` use `FROM devenv-base:latest`. The tw
 | 162 | `FROM common_utils AS devenv` | Keep | NO CHANGE |
 
 - 15 FROM lines change. All other lines remain unchanged.
+- **Note:** Inline tool stages do NOT get `LABEL tools=true`. They are intermediate build stages within `Dockerfile.devenv`, not standalone tool images. Only the standalone `shared/tools/Dockerfile.*` files carry the `tools=true` label.
 - Dependencies: Requires both `repo-base:latest` and `devenv-base:latest`.
 
 #### 4. `shared/tools/Dockerfile.cargo` — **UPDATE** (23 lines)
 
 - Line 6: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 5. `shared/tools/Dockerfile.common-utils` — **UPDATE** (28 lines)
 
 - Line 6: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 6. `shared/tools/Dockerfile.copilot-cli` — **UPDATE** (14 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 7. `shared/tools/Dockerfile.fnm` — **UPDATE** (21 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 8. `shared/tools/Dockerfile.fzf` — **UPDATE** (11 lines)
 
 - Line 3: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 9. `shared/tools/Dockerfile.gh` — **UPDATE** (23 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 10. `shared/tools/Dockerfile.go` — **UPDATE** (21 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 11. `shared/tools/Dockerfile.jq` — **UPDATE** (20 lines)
 
 - Line 7: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
 - Line 5 (`FROM ghcr.io/jqlang/jq:latest AS jq_source`): NO CHANGE (external image, not affected).
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 12. `shared/tools/Dockerfile.node` — **UPDATE** (46 lines)
 
 - Line 6: `FROM devenv-base:latest AS tool_fnm_stage` -> `FROM repo-base:latest AS tool_fnm_stage`.
 - Line 15: `FROM devenv-base:latest AS tool_node` -> `FROM repo-base:latest AS tool_node`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 13. `shared/tools/Dockerfile.nvim` — **UPDATE** (24 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 14. `shared/tools/Dockerfile.opencode` — **UPDATE** (14 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 15. `shared/tools/Dockerfile.ripgrep` — **UPDATE** (23 lines)
 
 - Line 7: `FROM devenv-tool-jq:latest AS jq_source` -> `FROM tools-jq:latest AS jq_source`.
 - Line 8: `FROM devenv-base:latest AS tool_ripgrep` -> `FROM repo-base:latest AS tool_ripgrep`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 16. `shared/tools/Dockerfile.starship` — **UPDATE** (17 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 17. `shared/tools/Dockerfile.tree-sitter` — **UPDATE** (25 lines)
 
 - Line 6: `FROM devenv-tool-node:latest AS tool_node` -> `FROM tools-node:latest AS tool_node`.
 - Line 9: `FROM devenv-base:latest AS tool_tree_sitter` -> `FROM repo-base:latest AS tool_tree_sitter`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 18. `shared/tools/Dockerfile.uv` — **UPDATE** (20 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 19. `shared/tools/Dockerfile.yq` — **UPDATE** (16 lines)
 
 - Line 5: `FROM devenv-base:latest` -> `FROM repo-base:latest`.
+- `LABEL devenv=true` -> `LABEL tools=true`.
 
 #### 20. `bin/build-devenv` — **UPDATE** (270 lines)
 
@@ -316,7 +334,7 @@ CMD ["/bin/bash"]
 | **Existing `devenv-tool-*` images on user machines:** After migration, old tags are orphaned | Build script no longer produces `devenv-tool-*` tags. Users with old images have dangling tags. Recommendation: document in changelog. No automated cleanup needed. |
 | **`docker/devenv/Dockerfile.base` ARG inheritance:** `repo-base` uses `ARG USERNAME=devuser` but child image needs the value | Dockerfile ARGs don't cross FROM boundaries. The child Dockerfile must either: (a) hardcode `devuser`, or (b) redeclare the ARG with the same default. Since the spec hardcodes `devuser` in SSH dir paths, hardcoding is acceptable and simpler. |
 | **`repo-base` label vs `devenv` label:** `repo-base` uses `LABEL repo-base=true`, devenv images use `LABEL devenv=true` | These are distinct labels. `repo-base` is filtered separately from devenv images. No conflict. |
-| **Tool Dockerfile `LABEL devenv=true`:** Some shared tools still carry `devenv=true` | Spec doesn't address tool labels. Tools are shared across environments, so `devenv=true` is inaccurate. Consider changing to a neutral label in the future, but this is outside scope of this spec. |
+| **Tool Dockerfile `LABEL devenv=true` -> `LABEL tools=true`:** Standalone shared tools currently carry `devenv=true`, which is inaccurate for shared tools | All 16 `shared/tools/Dockerfile.*` files migrate from `LABEL devenv=true` to `LABEL tools=true`. This is a required change per the spec. Inline tool stages in `Dockerfile.devenv` do NOT get this label — they are build stages, not standalone images. |
 | **`Dockerfile.devenv` line 7 unused stage alias:** `FROM devenv-base:latest AS devenv-base` is referenced nowhere | Harmless but dead code. Spec doesn't require its removal. Leave as-is or clean up as minor housekeeping. |
 | **`build_project()` auto-build chain:** Currently checks only `devenv:latest` | Must check entire chain: `repo-base` -> `devenv-base` -> `devenv`. Simplest: call `build_stage_devenv()` which cascades. Current implementation already does this (line 193 calls `build_stage_devenv`). The chain just needs to include `repo-base` in `build_stage_devenv`'s auto-check. |
 
@@ -343,19 +361,13 @@ No new runtime or build dependencies are introduced. The spec restructures exist
 
 **Recommendation:** (A) Hardcode `devuser`. The username is a project-wide constant.
 
-### 2. Standalone tool image label
+### 2. Standalone tool image label — **RESOLVED**
 
-**Question:** Should standalone tool images (`tools-<name>:latest`) carry `LABEL devenv=true`, `LABEL repo-base=true`, or a new label?
+**Decision:** Standalone tool images (`tools-<name>:latest`) use `LABEL tools=true`.
 
-**Options:**
-
-| Option | Tradeoff |
-|--------|----------|
-| (A) Keep `devenv=true` | Inaccurate for shared tools but maintains backward compatibility for any scripts filtering by this label. |
-| (B) New label `devenv-tools=true` | Accurate but breaks any existing label-based filtering. |
-| (C) No change (out of scope) | Spec doesn't address this. Defer to a future spec. |
-
-**Recommendation:** (C) Out of scope. The spec doesn't change tool labels.
+This distinguishes shared tool images from environment images (`devenv=true`) and
+the shared foundation (`repo-base=true`). All 16 `shared/tools/Dockerfile.*`
+files change from `LABEL devenv=true` to `LABEL tools=true`.
 
 ---
 

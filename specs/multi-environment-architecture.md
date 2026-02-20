@@ -334,6 +334,10 @@ The build script resolves dependencies automatically:
 | Tool (standalone)| `tools-<name>:latest`               | `tools-cargo:latest`     |
 | Devenv project   | `devenv-project-<parent>-<name>:latest` | `devenv-project-local-api:latest` |
 
+Standalone tool images carry `LABEL tools=true` for filtering and discovery.
+This distinguishes them from environment images (`devenv=true`) and the shared
+foundation (`repo-base=true`).
+
 Future environments follow the same tagging convention: `<env>-base:<timestamp>`,
 `<env>:<timestamp>`, and `<env>-project-<parent>-<name>:latest`.
 
