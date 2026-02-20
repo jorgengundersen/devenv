@@ -13,7 +13,9 @@ Before making changes, read these documents:
 ## Architecture overview
 
 ```
-docker/devenv/Dockerfile.base          Ubuntu 24.04 + devuser + SSH + core utilities
+docker/base/Dockerfile.base             Ubuntu 24.04 + devuser + core utilities
+       |
+docker/devenv/Dockerfile.base           Devenv base with SSH
        |
 shared/tools/Dockerfile.*               One tool per Dockerfile, independent build stages
        |
@@ -42,8 +44,8 @@ Every tool Dockerfile follows the same structure:
 
 # Tool: <toolname> (<short description>)
 
-FROM devenv-base:latest AS tool_<toolname>
-LABEL devenv=true
+FROM repo-base:latest AS tool_<toolname>
+LABEL tools=true
 
 USER root
 
@@ -59,7 +61,7 @@ USER devuser
 Rules:
 
 - Stage name must be `tool_<toolname>`.
-- `LABEL devenv=true` is required.
+- `LABEL tools=true` is required.
 - Install as `root`, then `chown` to `devuser` and end with `USER devuser`.
 - Place binaries in `/usr/local/bin/` when possible.
 - Chain related `RUN` commands with `&&` and clean up caches in the same layer.
@@ -76,7 +78,7 @@ Rules:
 | Medium (apt repository) | `shared/tools/Dockerfile.gh` | Add apt key + source, `apt-get install`, clean up |
 | Medium (install + relocate) | `shared/tools/Dockerfile.uv` | Run installer, move binaries to `/usr/local/bin/` |
 | Complex (depends on another tool) | `shared/tools/Dockerfile.node` | Multi-stage: build `fnm` first, then use it to install Node |
-| Complex (external image dependency) | `shared/tools/Dockerfile.ripgrep` | Pulls from `devenv-tool-jq:latest`, copies `jq` in |
+| Complex (external image dependency) | `shared/tools/Dockerfile.ripgrep` | Pulls from `tools-jq:latest`, copies `jq` in |
 
 ### Step 2: Add the tool stage to Dockerfile.devenv
 
@@ -86,7 +88,7 @@ Open `docker/devenv/Dockerfile.devenv` and add two things:
 Stage 2 or Stage 4; tools that depend on other stages go in Stage 3.
 
 ```dockerfile
-FROM devenv-base:latest AS tool_<toolname>
+FROM repo-base:latest AS tool_<toolname>
 USER root
 RUN <same installation commands as the standalone Dockerfile>
 ```
@@ -384,7 +386,7 @@ Do not modify `docker/devenv/Dockerfile.base` for:
 ### When to modify Dockerfile.devenv
 
 The final stage of `docker/devenv/Dockerfile.devenv` (the `devenv` stage starting with
-`FROM devenv-base:latest AS devenv`) handles artifact composition: copying
+`FROM common_utils AS devenv`) handles artifact composition: copying
 binaries from tool stages, setting `PATH`, and fixing ownership.
 
 Modify it when:
@@ -404,11 +406,12 @@ Do not modify `docker/devenv/Dockerfile.devenv` for:
 
 ### Procedure for base image changes
 
-1. Make the change in `docker/devenv/Dockerfile.base`.
-2. Rebuild the base image: `build-devenv --stage base`.
-3. Rebuild the devenv image: `build-devenv --stage devenv`.
-4. Test that all existing tools still work.
-5. Test with at least one project-specific image.
+1. Make the change in `docker/base/Dockerfile.base`.
+2. Rebuild the repo base image: `build-devenv --stage base`.
+3. Rebuild the devenv base image: `build-devenv --stage devenv-base`.
+4. Rebuild the devenv image: `build-devenv --stage devenv`.
+5. Test that all existing tools still work.
+6. Test with at least one project-specific image.
 
 ### Procedure for devenv final stage changes
 
@@ -423,7 +426,7 @@ Do not modify `docker/devenv/Dockerfile.devenv` for:
 Before submitting any change, verify:
 
 - [ ] Dockerfiles start with `# syntax=docker/dockerfile:1`.
-- [ ] All images have `LABEL devenv=true`.
+- [ ] Tool images have `LABEL tools=true`, environment images have `LABEL devenv=true`, repo-base has `LABEL repo-base=true`.
 - [ ] Tool stages are named `tool_<name>`.
 - [ ] Final `USER` is `devuser` in every Dockerfile.
 - [ ] No `ADD` used where `COPY` suffices.
@@ -437,5 +440,5 @@ Before submitting any change, verify:
 - [ ] `README.md` reflects the change (tools list, architecture tree, mount
       table, as applicable).
 - [ ] `build-devenv` usage text is updated if tool list changed.
-- [ ] Full rebuild succeeds: `build-devenv --stage base && build-devenv --stage devenv`.
+- [ ] Full rebuild succeeds: `build-devenv --stage base && build-devenv --stage devenv-base && build-devenv --stage devenv`.
 - [ ] Container starts and the change works: `devenv .`.

@@ -61,13 +61,19 @@ To point the symlinks at a different checkout/location:
 build-devenv --stage base
 ```
 
-### 4. Build Development Environment
+### 4. Build Devenv Base Image
+
+```bash
+build-devenv --stage devenv-base
+```
+
+### 5. Build Development Environment
 
 ```bash
 build-devenv --stage devenv
 ```
 
-### 5. Start Development Environment
+### 6. Start Development Environment
 
 ```bash
 # In current directory
@@ -93,8 +99,10 @@ devenv/
 ├── scripts/
 │   └── install-devenv           # Installation script
 ├── docker/
+│   ├── base/
+│   │   └── Dockerfile.base      # Shared repo base image
 │   └── devenv/
-│       ├── Dockerfile.base      # Base operating system image
+│       ├── Dockerfile.base      # Devenv base (SSH layer)
 │       ├── Dockerfile.devenv    # Complete development environment
 │       └── templates/           # Project templates
 │           ├── Dockerfile.project
@@ -145,11 +153,12 @@ devenv/
 Build Docker images for the development environment.
 
 ```bash
-build-devenv --stage base      # Build base image
-build-devenv --stage devenv    # Build complete environment
-build-devenv --tool common-utils  # Build common-utils tool image
-build-devenv --tool nvim       # Build specific tool
-build-devenv --project ./my-project  # Build project-specific image
+build-devenv --stage base # Build repo base image
+build-devenv --stage devenv-base # Build devenv base image
+build-devenv --stage devenv # Build complete environment
+build-devenv --tool common-utils # Build common-utils tool image
+build-devenv --tool nvim # Build specific tool
+build-devenv --project ./my-project # Build project-specific image
 ```
 
 ### devenv
@@ -222,7 +231,7 @@ Volumes are shared across all devenv containers and labeled `devenv=true` for ma
 
 ## Build Arguments
 
-All Dockerfiles support these build arguments:
+The repo base Dockerfile supports these build arguments:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
@@ -233,7 +242,7 @@ All Dockerfiles support these build arguments:
 Example with custom UID/GID:
 
 ```bash
-docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f docker/devenv/Dockerfile.base -t devenv-base .
+docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f docker/base/Dockerfile.base -t repo-base .
 ```
 
 ## Security
@@ -270,6 +279,7 @@ Remove Docker images:
 ```bash
 docker rmi devenv:latest
 docker rmi devenv-base:latest
+docker rmi repo-base:latest
 ```
 
 ## License
