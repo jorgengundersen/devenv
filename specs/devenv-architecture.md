@@ -59,7 +59,9 @@ devenv/
 The build pipeline follows a layered architecture:
 
 ```
-docker/devenv/Dockerfile.base (Ubuntu + devuser + SSH)
+docker/base/Dockerfile.base (Ubuntu + devuser + core utilities)
+    ↓
+docker/devenv/Dockerfile.base (SSH layer on repo-base)
     ↓
 docker/devenv/Dockerfile.devenv (common_utils stage, FROM devenv-base)
     ↓
@@ -70,11 +72,12 @@ docker/devenv/Dockerfile.devenv (devenv stage, FROM common_utils, aggregates too
 <project>/.devenv/Dockerfile (extends devenv with project deps)
 ```
 
-1. **Base Image** — Foundation OS with user setup and SSH server.
-2. **Common Utils Stage** — `docker/devenv/Dockerfile.devenv (common_utils stage)` installs a baseline of small CLI utilities on top of the base image.
-3. **Tool Images** — Each tool is built independently from the base image using multi-stage syntax.
-4. **Development Environment** — `docker/devenv/Dockerfile.devenv` final stage composes all tool artifacts into a single image via `COPY --from` instructions, starting from `common_utils`.
-5. **Project Extensions** — Project-specific Dockerfiles extend `devenv:latest` with additional dependencies.
+1. **Repo Base Image** — Foundation OS with user setup and core utilities.
+2. **Devenv Base Image** — Adds SSH client/server and runtime SSH directories.
+3. **Common Utils Stage** — `docker/devenv/Dockerfile.devenv (common_utils stage)` installs a baseline of small CLI utilities on top of the base image.
+4. **Tool Images** — Each tool is built independently from the repo base image using multi-stage syntax.
+5. **Development Environment** — `docker/devenv/Dockerfile.devenv` final stage composes all tool artifacts into a single image via `COPY --from` instructions, starting from `common_utils`.
+6. **Project Extensions** — Project-specific Dockerfiles extend `devenv:latest` with additional dependencies.
 
 ## Design Principles
 
@@ -107,15 +110,14 @@ Every container is assigned a deterministic name derived from the project path, 
 
 ## Image Specifications
 
-### Base Image
+### Repo Base Image
 
-**Path:** `docker/devenv/Dockerfile.base`
+**Path:** `docker/base/Dockerfile.base`
 
 **Responsibilities:**
 - Configure the base operating system (Ubuntu)
 - Create `devuser` (non-privileged user with matching host UID and GID)
-- Install core utilities, SSH client, and SSH server (`openssh-server`)
-- Prepare SSH directory structure (`/home/devuser/.ssh`) for runtime `authorized_keys` mounting
+- Install core utilities required by tool installers
 
 **Build Arguments:**
 
@@ -127,6 +129,14 @@ Every container is assigned a deterministic name derived from the project path, 
 
 **OS:** Ubuntu (latest LTS)
 
+### Devenv Base Image
+
+**Path:** `docker/devenv/Dockerfile.base`
+
+**Responsibilities:**
+- Install SSH client and server (`openssh-client`, `openssh-server`)
+- Prepare SSH directory structure (`/home/devuser/.ssh`) for runtime `authorized_keys` mounting
+
 ### Tool Images
 
 **Path:** `shared/tools/`
@@ -134,7 +144,7 @@ Every container is assigned a deterministic name derived from the project path, 
 Each tool Dockerfile handles installation of a single tool and its configuration. Tool Dockerfiles use multi-stage syntax:
 
 ```dockerfile
-FROM devenv-base:latest AS tool_<name>
+FROM repo-base:latest AS tool_<name>
 ```
 
 Stage naming convention: `tool_<name>` (e.g., `tool_nvim`, `tool_cargo`)
@@ -169,7 +179,7 @@ Required runtime dependencies:
 **Example:** `ripgrep` uses `jq` to fetch the latest version from GitHub API:
 
 ```dockerfile
-COPY --from=devenv-tool-jq:latest /usr/local/bin/jq /usr/local/bin/jq
+COPY --from=tools-jq:latest /usr/local/bin/jq /usr/local/bin/jq
 ```
 
 ### Version Policy
@@ -232,7 +242,7 @@ RUN uv pip install -e ".[dev]"
 
 ```dockerfile
 # In intermediate tool stages - install only
-FROM devenv-base:latest AS tool_<name>
+FROM repo-base:latest AS tool_<name>
 USER root
 RUN apt-get install -y <package>
 
@@ -294,8 +304,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Extract from official Docker image via multi-stage build:
 
 ```dockerfile
-FROM ghcr.io/jqlang/jq:latest AS jq_source
-FROM devenv-base:latest AS tool_jq
+FROM ghcr.io/jqlang/jq:1.7.1 AS jq_source
+FROM repo-base:latest AS tool_jq
 COPY --from=jq_source /jq /usr/local/bin/jq
 RUN chmod +x /usr/local/bin/jq
 ```
@@ -315,7 +325,7 @@ dpkg -i "ripgrep_${LATEST_TAG}-1_amd64.deb"
 ### gh
 
 ```bash
-(type -p wget >/dev/null || (apt update && apt install wget -y)) \
+(type -p wget >/dev/null || (apt update && apt install -y --no-install-recommends wget)) \
     && mkdir -p -m 755 /etc/apt/keyrings \
     && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
@@ -323,7 +333,7 @@ dpkg -i "ripgrep_${LATEST_TAG}-1_amd64.deb"
     && mkdir -p -m 755 /etc/apt/sources.list.d \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt update \
-    && apt install gh -y
+    && apt install -y --no-install-recommends gh
 ```
 
 ### nvim
@@ -402,7 +412,7 @@ A `build-devenv` script coordinates image construction:
 
 **Usage:**
 ```bash
-build-devenv --stage <stage>   # Build base or devenv stage
+build-devenv --stage <stage>   # Build base, devenv-base, or devenv stage
 build-devenv --tool <tool>     # Build specific tool Dockerfile
 build-devenv --project <path>  # Build project-specific image
 ```
@@ -410,17 +420,18 @@ build-devenv --project <path>  # Build project-specific image
 **Examples:**
 
 ```bash
-build-devenv --stage base      # Build docker/devenv/Dockerfile.base
-build-devenv --stage devenv    # Build docker/devenv/Dockerfile.devenv
-build-devenv --tool common-utils  # Build shared/tools/Dockerfile.common-utils
-build-devenv --tool nvim       # Build shared/tools/Dockerfile.nvim
-build-devenv --project ./my-project  # Build project/.devenv/Dockerfile
+build-devenv --stage base # Build docker/base/Dockerfile.base
+build-devenv --stage devenv-base # Build docker/devenv/Dockerfile.base
+build-devenv --stage devenv # Build docker/devenv/Dockerfile.devenv
+build-devenv --tool common-utils # Build shared/tools/Dockerfile.common-utils
+build-devenv --tool nvim # Build shared/tools/Dockerfile.nvim
+build-devenv --project ./my-project # Build project/.devenv/Dockerfile
 ```
 
 **Build Context:** The build context defaults to the repository root.
 You can override it by setting `DEVENV_HOME=/path/to/repo`.
 
-**Tool Image Tags:** When building individual tools, tag as `devenv-tool-<name>:latest` (e.g., `devenv-tool-nvim:latest`).
+**Tool Image Tags:** When building individual tools, tag as `tools-<name>:latest` (e.g., `tools-nvim:latest`).
 
 **Tool Isolation Strategy:**
 
@@ -429,7 +440,7 @@ The `--tool` flag builds standalone tool images for isolated debugging without a
 ```bash
 # Build and test a single tool in isolation
 build-devenv --tool cargo
-docker run --rm -it devenv-tool-cargo:latest /bin/bash
+docker run --rm -it tools-cargo:latest /bin/bash
 ```
 
 These tool images:
@@ -606,8 +617,8 @@ devenv-repos-frontend   127.0.0.1:54987         running   15m ago
 Use explicit version tags rather than `latest` for traceability:
 
 ```bash
-docker build -t devenv-base:v1.0.0 .
-docker tag devenv-base:v1.0.0 devenv-base:latest
+docker build -t repo-base:v1.0.0 .
+docker tag repo-base:v1.0.0 repo-base:latest
 ```
 
 **Project image tag format:** `devenv-project-<parent>-<basename>:latest`

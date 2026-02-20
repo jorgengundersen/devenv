@@ -224,13 +224,7 @@ extends `<env>:latest`.
 
 ### Migration: shared/tools/ FROM Image
 
-All tool Dockerfiles in `shared/tools/` currently use:
-
-```dockerfile
-FROM devenv-base:latest AS tool_<name>
-```
-
-This changes to:
+All tool Dockerfiles in `shared/tools/` use:
 
 ```dockerfile
 FROM repo-base:latest AS tool_<name>
@@ -244,42 +238,33 @@ statement that pulls in a pre-built standalone tool image (not a build stage
 within the same Dockerfile). These inter-tool `FROM` references are distinct
 from the base image `FROM` and follow a different migration path:
 
-- **Base image FROM** changes `devenv-base:latest` → `repo-base:latest`
-  (same as all other tool Dockerfiles).
-- **Inter-tool FROM** changes `devenv-tool-<name>:latest` → `tools-<name>:latest`
-  to match the updated standalone tag convention (see [Image Tagging](#image-tagging)).
+- **Base image FROM** is `repo-base:latest` (same as all other tool Dockerfiles).
+- **Inter-tool FROM** uses `tools-<name>:latest` to match the standalone tag
+  convention (see [Image Tagging](#image-tagging)).
 
 The two affected tools:
 
-| Tool | Depends on | Current inter-tool FROM | Migrated inter-tool FROM |
-|------|-----------|-------------------------|--------------------------|
-| `ripgrep` | `jq` | `FROM devenv-tool-jq:latest AS jq_source` | `FROM tools-jq:latest AS jq_source` |
-| `tree-sitter` | `node` | `FROM devenv-tool-node:latest AS tool_node` | `FROM tools-node:latest AS tool_node` |
+| Tool | Depends on | Inter-tool FROM |
+|------|-----------|-----------------|
+| `ripgrep` | `jq` | `FROM tools-jq:latest AS jq_source` |
+| `tree-sitter` | `node` | `FROM tools-node:latest AS tool_node` |
 
 In both cases, the standalone tool image is referenced via a `FROM` statement
 (creating a named stage), and the binary or directory is then copied into the
 final stage with `COPY --from=<stage_name>`. For example, `Dockerfile.ripgrep`
-uses `FROM devenv-tool-jq:latest AS jq_source` followed by
+uses `FROM tools-jq:latest AS jq_source` followed by
 `COPY --from=jq_source /usr/local/bin/jq /usr/local/bin/jq`.
 
 **Build script impact:** The `build_tool()` function in `bin/build-devenv`
-(lines 164-168) resolves inter-tool dependencies at build time — it checks
-whether `devenv-tool-node:latest` exists before building `tree-sitter` and
-builds the `node` tool first if missing. This dependency check must be updated
-to look for `tools-node:latest` instead of `devenv-tool-node:latest`, and the
-tool image tag at line 174 must change from `devenv-tool-<name>:latest` to
-`tools-<name>:latest`.
+resolves inter-tool dependencies at build time — it checks whether
+`tools-node:latest` exists before building `tree-sitter` and builds the `node`
+tool first if missing. Tool images are tagged as `tools-<name>:latest`.
 
 ### Tool Stages in Environment Dockerfiles
 
-The inline tool stages in `Dockerfile.devenv` also change their FROM to
-reference `repo-base:latest` instead of `devenv-base:latest`:
+The inline tool stages in `Dockerfile.devenv` use `repo-base:latest`:
 
 ```dockerfile
-# Before
-FROM devenv-base:latest AS tool_cargo
-
-# After
 FROM repo-base:latest AS tool_cargo
 ```
 

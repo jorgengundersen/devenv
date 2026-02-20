@@ -349,7 +349,7 @@ FROM ubuntu:latest AS base
 
 **Non-root user:** The final stage must end with `USER devuser`. Root is used only during installation steps.
 
-**Labels:** All devenv images carry `LABEL devenv=true`.
+**Labels:** Images carry labels by type: `LABEL repo-base=true` for the shared foundation, `LABEL devenv=true` for devenv environment images, and `LABEL tools=true` for standalone tool images.
 
 ### 2.3 Forbidden Patterns
 
