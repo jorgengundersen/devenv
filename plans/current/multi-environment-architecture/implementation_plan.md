@@ -10,6 +10,15 @@
 
 ---
 
+## Delta Notes (Plan vs Research)
+
+- `bin/build-devenv` needs an explicit `build_project()` update to enforce the full `repo-base -> devenv-base -> devenv` chain; this is in research (Gap #25) but not yet listed as a task in this plan.
+- `shared/tools/Dockerfile.fzf` adds `USER devuser` to fix a coding-standard issue; this is extra scope beyond research and should be treated as a deliberate enhancement.
+- `shared/tools/Dockerfile.jq` changes the `jq_source` stage label to `tools=true`; research leaves this stage unchanged, so this is extra metadata scope beyond research.
+- `docker/devenv/Dockerfile.base` includes `USER root` for privileged commands because `repo-base` ends with `USER devuser`; this is an implementation detail not called out in research but required for the build to work.
+
+---
+
 ## Execution Rules
 
 1. Run `shellcheck` on any created or modified bash script (`AGENTS.md`).
@@ -19,6 +28,8 @@
 5. Bash scripts must use `set -euo pipefail`, `local` for all function variables, `printf` (not `echo`) for return values (`coding-standard.md` 1.2-1.8).
 6. No backwards compatibility requirements (`AGENTS.md`).
 7. One-line comment above every new function (`coding-standard.md` 1.3).
+
+**User/Privilege convention:** `repo-base` must end with `USER devuser`. Any child Dockerfile that needs privileged operations must switch to `USER root` temporarily, then switch back to `USER devuser` for the final stage.
 
 ---
 
@@ -545,20 +556,21 @@ FROM repo-base:latest AS tool_<name>
 
 ## Phase 6: Update Documentation
 
-### Task 17 — Update `CONTRIBUTING.md` for new image hierarchy and naming
+### Task 17 — Update documentation for new image hierarchy and naming
 
-- **Files:** `CONTRIBUTING.md`
+- **Files:** To be determined by implementation agent.
 - **Description:** Update stale references to the old image naming and label conventions. The migration changes tool base images from `devenv-base:latest` to `repo-base:latest`, tool labels from `LABEL devenv=true` to `LABEL tools=true`, standalone tool tags from `devenv-tool-<name>:latest` to `tools-<name>:latest`, and introduces the three-layer build chain.
-- **Changes:**
-  1. **Architecture overview (line 16):** Update the tree to show the new `docker/base/Dockerfile.base` layer above `docker/devenv/Dockerfile.base`.
-  2. **Step 1 tool Dockerfile template (lines 45-46):** Change `FROM devenv-base:latest AS tool_<toolname>` to `FROM repo-base:latest AS tool_<toolname>`. Change `LABEL devenv=true` to `LABEL tools=true`.
-  3. **Rules (line 62):** Change "`LABEL devenv=true` is required" to "`LABEL tools=true` is required" (for tool Dockerfiles).
-  4. **Reference examples table (line 79):** Change `devenv-tool-jq:latest` to `tools-jq:latest`.
-  5. **Step 2 inline stage template (line 89):** Change `FROM devenv-base:latest AS tool_<toolname>` to `FROM repo-base:latest AS tool_<toolname>`.
-  6. **Section 5 procedure (lines 407-410):** Update `build-devenv --stage base` description to note it builds `repo-base:latest`. Add `build-devenv --stage devenv-base` step.
-  7. **Checklist (line 426):** Change "All images have `LABEL devenv=true`" to "Tool images have `LABEL tools=true`, environment images have `LABEL devenv=true`, repo-base has `LABEL repo-base=true`".
-  8. **Checklist (line 440):** Update full rebuild command to `build-devenv --stage base && build-devenv --stage devenv-base && build-devenv --stage devenv`.
-- **Verification:** `grep -n 'devenv-tool-' CONTRIBUTING.md` returns zero matches. `grep -n 'FROM devenv-base:latest AS tool_' CONTRIBUTING.md` returns zero matches.
+- **Changes needed:**
+  1. **Architecture overview:** Update the image tree to show the new `docker/base/Dockerfile.base` layer above `docker/devenv/Dockerfile.base`.
+  2. **Tool Dockerfile template:** Change `FROM devenv-base:latest AS tool_<toolname>` to `FROM repo-base:latest AS tool_<toolname>`. Change `LABEL devenv=true` to `LABEL tools=true`.
+  3. **Rules text:** Replace "`LABEL devenv=true` is required" with "`LABEL tools=true` is required" (for tool Dockerfiles).
+  4. **Examples:** Change `devenv-tool-jq:latest` references to `tools-jq:latest`.
+  5. **Inline stage template:** Change `FROM devenv-base:latest AS tool_<toolname>` to `FROM repo-base:latest AS tool_<toolname>`.
+  6. **Build procedure:** Note that `build-devenv --stage base` builds `repo-base:latest`, and add `build-devenv --stage devenv-base` to the sequence.
+  7. **Checklist labels:** State "Tool images have `LABEL tools=true`, environment images have `LABEL devenv=true`, repo-base has `LABEL repo-base=true`".
+  8. **Full rebuild command:** Update to `build-devenv --stage base && build-devenv --stage devenv-base && build-devenv --stage devenv`.
+  9. **User convention note:** Document that `repo-base` ends with `USER devuser`, and child Dockerfiles must `USER root` only for privileged steps then return to `USER devuser`.
+- **Verification:** Confirm no stale references remain to `devenv-tool-*` or `FROM devenv-base:latest AS tool_` in documentation.
 
 ### Task 18 — Update `specs/devenv-architecture.md` for new tool naming
 
