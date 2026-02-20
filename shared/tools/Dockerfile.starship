@@ -2,8 +2,8 @@
 
 # Tool: starship (shell prompt)
 
-FROM devenv-base:latest AS tool_starship
-LABEL devenv=true
+FROM repo-base:latest AS tool_starship
+LABEL tools=true
 
 USER root
 

@@ -2,8 +2,8 @@
 
 # Tool: nvim (Neovim editor)
 
-FROM devenv-base:latest AS tool_nvim
-LABEL devenv=true
+FROM repo-base:latest AS tool_nvim
+LABEL tools=true
 
 USER root
 

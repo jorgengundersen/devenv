@@ -4,9 +4,9 @@
 # Depends on: jq
 # Installs ripgrep from official GitHub releases
 
-FROM devenv-tool-jq:latest AS jq_source
-FROM devenv-base:latest AS tool_ripgrep
-LABEL devenv=true
+FROM tools-jq:latest AS jq_source
+FROM repo-base:latest AS tool_ripgrep
+LABEL tools=true
 
 USER root
 

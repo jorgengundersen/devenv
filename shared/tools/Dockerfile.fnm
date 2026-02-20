@@ -2,8 +2,8 @@
 
 # Tool: fnm (Fast Node Manager)
 
-FROM devenv-base:latest AS tool_fnm
-LABEL devenv=true
+FROM repo-base:latest AS tool_fnm
+LABEL tools=true
 
 USER root
 
@@ -12,7 +12,7 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --instal
 
 # Make fnm available and configure shell
 RUN chmod +x /usr/local/bin/fnm \
-    && echo 'eval "$(fnm env)"' >> /etc/profile.d/fnm.sh
+    && printf '%s\n' 'eval "$(fnm env)"' >> /etc/profile.d/fnm.sh
 
 # Change ownership
 RUN chown devuser:devuser /usr/local/bin/fnm /etc/profile.d/fnm.sh

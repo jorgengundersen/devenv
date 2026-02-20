@@ -3,8 +3,8 @@
 # Tool: common-utils
 # Installs a baseline of small CLI utilities expected in most environments.
 
-FROM devenv-base:latest AS tool_common_utils
-LABEL devenv=true
+FROM repo-base:latest AS tool_common_utils
+LABEL tools=true
 
 USER root
 

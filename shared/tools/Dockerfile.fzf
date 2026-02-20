@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM devenv-base:latest AS tool_fzf
+FROM repo-base:latest AS tool_fzf
+
+LABEL tools=true
 
 USER root
 
@@ -8,3 +10,5 @@ RUN git clone --depth 1 https://github.com/junegunn/fzf.git /root/.fzf \
     && /root/.fzf/install
 
 ENV PATH="/root/.fzf/bin:${PATH}"
+
+USER devuser

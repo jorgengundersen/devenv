@@ -3,8 +3,8 @@
 # Tool: node (Node.js via fnm)
 # Depends on fnm stage
 
-FROM devenv-base:latest AS tool_fnm_stage
-LABEL devenv=true
+FROM repo-base:latest AS tool_fnm_stage
+LABEL tools=true
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends unzip \
     && rm -rf /var/lib/apt/lists/*
@@ -12,8 +12,8 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --instal
     && chmod +x /usr/local/bin/fnm \
     && chown devuser:devuser /usr/local/bin/fnm
 
-FROM devenv-base:latest AS tool_node
-LABEL devenv=true
+FROM repo-base:latest AS tool_node
+LABEL tools=true
 
 USER root
 

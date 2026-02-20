@@ -2,10 +2,10 @@
 
 # Tool: jq (JSON processor)
 
-FROM ghcr.io/jqlang/jq:latest AS jq_source
-LABEL devenv=true
-FROM devenv-base:latest AS tool_jq
-LABEL devenv=true
+FROM ghcr.io/jqlang/jq:1.7.1 AS jq_source
+LABEL tools=true
+FROM repo-base:latest AS tool_jq
+LABEL tools=true
 
 USER root
 

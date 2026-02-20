@@ -2,8 +2,8 @@
 
 # Tool: go (Go programming language)
 
-FROM devenv-base:latest AS tool_go
-LABEL devenv=true
+FROM repo-base:latest AS tool_go
+LABEL tools=true
 
 USER root
 

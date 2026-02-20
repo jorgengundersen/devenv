@@ -2,8 +2,8 @@
 
 # Tool: uv (Python package manager)
 
-FROM devenv-base:latest AS tool_uv
-LABEL devenv=true
+FROM repo-base:latest AS tool_uv
+LABEL tools=true
 
 USER root
 

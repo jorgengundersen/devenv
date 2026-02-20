@@ -3,8 +3,8 @@
 # Tool: cargo (Rust toolchain)
 # Installs rustup with cargo to system location
 
-FROM devenv-base:latest AS tool_cargo
-LABEL devenv=true
+FROM repo-base:latest AS tool_cargo
+LABEL tools=true
 
 USER root
 

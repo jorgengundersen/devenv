@@ -3,11 +3,10 @@
 # Tool: tree-sitter (Tree-sitter CLI)
 # Depends on node tool image
 
-FROM devenv-tool-node:latest AS tool_node
-LABEL devenv=true
+FROM tools-node:latest AS tool_node
 
-FROM devenv-base:latest AS tool_tree_sitter
-LABEL devenv=true
+FROM repo-base:latest AS tool_tree_sitter
+LABEL tools=true
 
 USER root
 

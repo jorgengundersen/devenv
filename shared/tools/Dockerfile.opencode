@@ -2,8 +2,8 @@
 
 # Tool: opencode (AI coding assistant)
 
-FROM devenv-base:latest AS tool_opencode
-LABEL devenv=true
+FROM repo-base:latest AS tool_opencode
+LABEL tools=true
 
 USER root
 
