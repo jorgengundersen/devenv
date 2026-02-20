@@ -28,8 +28,8 @@ Usage: build-devenv [OPTIONS]
 Build containerized development environment images.
 
 Options:
-    --stage <stage>      Build base or devenv stage
-                         Valid stages: base, devenv
+    --stage <stage>      Build a stage image
+                         Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
                          Valid tools: cargo, common-utils, copilot-cli, fnm, fzf, gh, go, jq, node, nvim, opencode, ripgrep, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
@@ -37,6 +37,7 @@ Options:
 
 Examples:
     build-devenv --stage base
+    build-devenv --stage devenv-base
     build-devenv --stage devenv
     build-devenv --tool common-utils
     build-devenv --tool nvim
@@ -98,13 +99,40 @@ derive_project_image_suffix() {
 }
 
 # --- Commands ---
-# Build the base image.
-build_stage_base() {
-    log_info "Building base image..."
+# Build the repo-base image (shared foundation).
+build_stage_repo_base() {
+    log_info "Building repo-base image..."
+
+    local dockerfile="${DEVENV_HOME}/docker/base/Dockerfile.base"
+    if [[ ! -f "${dockerfile}" ]]; then
+        die "Repo-base Dockerfile not found: ${dockerfile}"
+    fi
+
+    local version
+    version=$(date +%Y%m%d.%H%M%S)
+
+    log_info "Building repo-base:${version}..."
+    docker build \
+        -f "${dockerfile}" \
+        -t "repo-base:${version}" \
+        -t "repo-base:latest" \
+        "${DEVENV_HOME}"
+
+    log_info "Repo-base image built successfully: repo-base:${version}"
+}
+
+# Build the devenv-base image (SSH layer on top of repo-base).
+build_stage_devenv_base() {
+    log_info "Building devenv-base image..."
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^repo-base:latest$"; then
+        log_info "Repo-base image not found, building first..."
+        build_stage_repo_base
+    fi
 
     local dockerfile="${DEVENV_HOME}/docker/devenv/Dockerfile.base"
     if [[ ! -f "${dockerfile}" ]]; then
-        die "Base Dockerfile not found: ${dockerfile}"
+        die "Devenv-base Dockerfile not found: ${dockerfile}"
     fi
 
     local version
@@ -117,16 +145,21 @@ build_stage_base() {
         -t "${IMAGE_PREFIX}-base:latest" \
         "${DEVENV_HOME}"
 
-    log_info "Base image built successfully: ${IMAGE_PREFIX}-base:${version}"
+    log_info "Devenv-base image built successfully: ${IMAGE_PREFIX}-base:${version}"
 }
 
 # Build the devenv image (complete environment).
 build_stage_devenv() {
     log_info "Building devenv image..."
 
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^repo-base:latest$"; then
+        log_info "Repo-base image not found, building first..."
+        build_stage_repo_base
+    fi
+
     if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
-        log_info "Base image not found, building first..."
-        build_stage_base
+        log_info "Devenv-base image not found, building first..."
+        build_stage_devenv_base
     fi
 
     local dockerfile="${DEVENV_HOME}/docker/devenv/Dockerfile.devenv"
@@ -156,25 +189,32 @@ build_tool() {
         die "Tool Dockerfile not found: ${dockerfile}"
     fi
 
-    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
-        log_info "Base image not found, building first..."
-        build_stage_base
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^repo-base:latest$"; then
+        log_info "Repo-base image not found, building first..."
+        build_stage_repo_base
     fi
 
     if [[ "${tool}" == "tree-sitter" ]]; then
-        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-tool-node:latest$"; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-node:latest$"; then
             log_info "Node tool image not found, building first..."
             build_tool "node"
+        fi
+    fi
+
+    if [[ "${tool}" == "ripgrep" ]]; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-jq:latest$"; then
+            log_info "jq tool image not found, building first..."
+            build_tool "jq"
         fi
     fi
 
     log_info "Building tool: ${tool}..."
     docker build \
         -f "${dockerfile}" \
-        -t "${IMAGE_PREFIX}-tool-${tool}:latest" \
+        -t "tools-${tool}:latest" \
         "${DEVENV_HOME}"
 
-    log_info "Tool image built successfully: ${IMAGE_PREFIX}-tool-${tool}:latest"
+    log_info "Tool image built successfully: tools-${tool}:latest"
 }
 
 # Build a project-specific image.
@@ -186,6 +226,16 @@ build_project() {
     local project_dockerfile="${project_path}/.devenv/Dockerfile"
     if [[ ! -f "${project_dockerfile}" ]]; then
         die "Project Dockerfile not found: ${project_dockerfile}"
+    fi
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^repo-base:latest$"; then
+        log_info "Repo-base image not found, building first..."
+        build_stage_repo_base
+    fi
+
+    if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}-base:latest$"; then
+        log_info "Devenv-base image not found, building first..."
+        build_stage_devenv_base
     fi
 
     if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}:latest$"; then
@@ -220,17 +270,20 @@ main() {
             --stage)
                 shift
                 if [[ $# -eq 0 ]]; then
-                    die "--stage requires an argument (base or devenv)"
+                    die "--stage requires an argument (base, devenv-base, or devenv)"
                 fi
                 case "$1" in
                     base)
-                        build_stage_base
+                        build_stage_repo_base
+                        ;;
+                    devenv-base)
+                        build_stage_devenv_base
                         ;;
                     devenv)
                         build_stage_devenv
                         ;;
                     *)
-                        die "Invalid stage: $1. Valid stages: base, devenv"
+                        die "Invalid stage: $1. Valid stages: base, devenv-base, devenv"
                         ;;
                 esac
                 shift
