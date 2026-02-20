@@ -1,61 +1,29 @@
 # syntax=docker/dockerfile:1
 
-# Base Development Environment Image
-# Ubuntu LTS with devuser and core utilities
+# Devenv Base Image
+# Adds SSH server to repo-base for interactive development
 
-FROM ubuntu:24.04 AS base
+FROM repo-base:latest AS base
 
-# Label for filtering devenv images
 LABEL devenv=true
 
-# Build arguments
-ARG USERNAME=devuser
-ARG USER_UID=1000
-ARG USER_GID=1000
-# Avoid interactive prompts during apt
+USER root
+
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install core utilities and SSH server
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
     openssh-client \
     openssh-server \
-    sudo \
-    wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /run/sshd \
     && ssh-keygen -A
 
-# Create group and user with matching host UID/GID
-# Handle case where GID/UID might already exist in base image
-RUN if ! getent group ${USER_GID} > /dev/null 2>&1; then \
-        groupadd --gid ${USER_GID} ${USERNAME}; \
-    else \
-        groupmod -n ${USERNAME} $(getent group ${USER_GID} | cut -d: -f1); \
-    fi \
-    && if ! getent passwd ${USER_UID} > /dev/null 2>&1; then \
-        useradd --uid ${USER_UID} --gid ${USER_GID} --shell /bin/bash --create-home ${USERNAME}; \
-    else \
-        usermod -l ${USERNAME} -d /home/${USERNAME} -m $(getent passwd ${USER_UID} | cut -d: -f1); \
-        groupmod -n ${USERNAME} $(getent group ${USER_GID} | cut -d: -f1) 2>/dev/null || true; \
-    fi \
-    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
-    && chmod 0440 /etc/sudoers.d/${USERNAME}
+RUN mkdir -p /home/devuser/.ssh \
+    && chmod 700 /home/devuser/.ssh
 
-# Setup SSH directory and copy public key
-RUN mkdir -p /home/${USERNAME}/.ssh \
-    && chmod 700 /home/${USERNAME}/.ssh
+RUN chown -R devuser:devuser /home/devuser/.ssh
 
-RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh
+USER devuser
 
-# Set default working directory
-WORKDIR /home/${USERNAME}
-
-# Switch to non-privileged user
-USER ${USERNAME}
-
-# Default to bash shell
 CMD ["/bin/bash"]
