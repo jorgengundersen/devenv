@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+
+# Repo Base Image
+# Shared foundation for all environment types: Ubuntu LTS, core packages, devuser
+
+FROM ubuntu:24.04 AS base
+
+LABEL repo-base=true
+
+ARG USERNAME=devuser
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    sudo \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create group and user with matching host UID/GID.
+RUN if ! getent group ${USER_GID} > /dev/null 2>&1; then \
+        groupadd --gid ${USER_GID} ${USERNAME}; \
+    else \
+        groupmod -n ${USERNAME} $(getent group ${USER_GID} | cut -d: -f1); \
+    fi \
+    && if ! getent passwd ${USER_UID} > /dev/null 2>&1; then \
+        useradd --uid ${USER_UID} --gid ${USER_GID} --shell /bin/bash --create-home ${USERNAME}; \
+    else \
+        usermod -l ${USERNAME} -d /home/${USERNAME} -m $(getent passwd ${USER_UID} | cut -d: -f1); \
+        groupmod -n ${USERNAME} $(getent group ${USER_GID} | cut -d: -f1) 2>/dev/null || true; \
+    fi \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME}
+
+WORKDIR /home/${USERNAME}
+
+USER ${USERNAME}
+
+CMD ["/bin/bash"]
