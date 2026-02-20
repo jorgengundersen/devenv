@@ -26,13 +26,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Runtime and build tools (can be built in parallel)
-FROM devenv-base:latest AS tool_cargo
+FROM repo-base:latest AS tool_cargo
 USER root
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
 
-FROM devenv-base:latest AS tool_go
+FROM repo-base:latest AS tool_go
 USER root
 RUN GO_RUNTIME_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n 1) \
     && curl -LO "https://go.dev/dl/${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
@@ -40,7 +40,7 @@ RUN GO_RUNTIME_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n 1) \
     && tar -C /usr/local -xzf "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
     && rm "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz"
 
-FROM devenv-base:latest AS tool_fnm
+FROM repo-base:latest AS tool_fnm
 USER root
 # Install unzip which is required by fnm installer
 RUN apt-get update && apt-get install -y --no-install-recommends unzip \
@@ -48,25 +48,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends unzip \
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin \
     && chmod +x /usr/local/bin/fnm
 
-FROM devenv-base:latest AS tool_uv
+FROM repo-base:latest AS tool_uv
 USER root
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uv /usr/local/bin/uv \
     && mv /root/.local/bin/uvx /usr/local/bin/uvx \
     && chmod +x /usr/local/bin/uv /usr/local/bin/uvx
 
-FROM devenv-base:latest AS tool_fzf
+FROM repo-base:latest AS tool_fzf
 USER root
 RUN git clone --depth 1 https://github.com/junegunn/fzf.git /root/.fzf \
     && /root/.fzf/install
 
-FROM devenv-base:latest AS tool_jq
+FROM repo-base:latest AS tool_jq
 USER root
-COPY --from=ghcr.io/jqlang/jq:latest /jq /usr/local/bin/jq
+COPY --from=ghcr.io/jqlang/jq:1.7.1 /jq /usr/local/bin/jq
 RUN chmod +x /usr/local/bin/jq
 
 # Stage 3: Dependent tools
-FROM devenv-base:latest AS tool_node
+FROM repo-base:latest AS tool_node
 USER root
 # Copy fnm
 COPY --from=tool_fnm /usr/local/bin/fnm /usr/local/bin/fnm
@@ -85,7 +85,7 @@ RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
     && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
     && ln -sf /opt/node/bin/npx /usr/local/bin/npx
 
-FROM devenv-base:latest AS tool_ripgrep
+FROM repo-base:latest AS tool_ripgrep
 USER root
 
 # Runtime deps for Neovim plugins and LSP installers
@@ -105,7 +105,7 @@ RUN LATEST_TAG=$(curl -s https://api.github.com/repos/BurntSushi/ripgrep/release
     && rm "ripgrep_${LATEST_TAG}-1_amd64.deb"
 
 # Stage 4: Standalone tools
-FROM devenv-base:latest AS tool_gh
+FROM repo-base:latest AS tool_gh
 USER root
 RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
     && mkdir -p -m 755 /etc/apt/keyrings \
@@ -118,7 +118,7 @@ RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
     && apt-get install gh -y \
     && rm -rf /var/lib/apt/lists/*
 
-FROM devenv-base:latest AS tool_nvim
+FROM repo-base:latest AS tool_nvim
 USER root
 RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
     && rm -rf /opt/nvim-linux-x86_64 \
@@ -126,7 +126,7 @@ RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linu
     && rm nvim-linux-x86_64.tar.gz \
     && ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
 
-FROM devenv-base:latest AS tool_opencode
+FROM repo-base:latest AS tool_opencode
 USER root
 RUN curl -fsSL https://opencode.ai/install | bash \
     && if [ -f /root/.opencode/bin/opencode ]; then \
@@ -136,20 +136,20 @@ RUN curl -fsSL https://opencode.ai/install | bash \
         chmod +x /usr/local/bin/opencode; \
     fi
 
-FROM devenv-base:latest AS tool_copilot-cli
+FROM repo-base:latest AS tool_copilot-cli
 USER root
 RUN curl -fsSL https://gh.io/copilot-install | bash
 
-FROM devenv-base:latest AS tool_starship
+FROM repo-base:latest AS tool_starship
 USER root
 RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
 
-FROM devenv-base:latest AS tool_yq
+FROM repo-base:latest AS tool_yq
 USER root
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq
 
-FROM devenv-base:latest AS tool_tree_sitter
+FROM repo-base:latest AS tool_tree_sitter
 USER root
 COPY --from=tool_node /opt/node /opt/node
 RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
