@@ -2,27 +2,29 @@
 
 This repository began as a single containerized development environment (devenv).
 This specification defines the architecture for supporting multiple environment
-types — starting with devenv and adding a Ralph environment for autonomous AI
-agent loops — while sharing a common foundation.
+types while sharing a common foundation. The first environment is devenv; the
+architecture is designed so that additional environments can be added without
+duplicating base image logic.
 
 ## Motivation
 
 The devenv environment is optimized for interactive, terminal-based development:
 SSH server, shell prompt, editor, fuzzy finder, and similar interactive tools. A
-growing need exists for a second environment type: a headless container that runs
-AI coding agents in autonomous loops (the Ralph Wiggum technique). These two
-environments share a common Ubuntu base and overlapping tool sets, but differ in
-purpose, user experience, and tool selection.
+growing need exists for specialized environments that serve different purposes —
+for example, a headless container that runs AI coding agents in autonomous loops,
+or a CI-focused environment with a minimal tool set.
 
-Without a shared foundation, each environment would duplicate base image logic
-(Ubuntu setup, user creation, core packages), diverge over time, and increase
-maintenance burden. A layered architecture with a shared repo-wide base image
-solves this.
+These environments share a common Ubuntu base and overlapping tool sets, but
+differ in purpose, user experience, and tool selection. Without a shared
+foundation, each environment would duplicate base image logic (Ubuntu setup, user
+creation, core packages), diverge over time, and increase maintenance burden. A
+layered architecture with a shared repo-wide base image solves this.
 
-### Ralph Wiggum Loop
+### Example: Headless Agent Loops
 
-The Ralph Wiggum technique (coined by Geoffrey Huntley) is an orchestration
-pattern for autonomous AI coding agents. In its simplest form:
+One motivating use case is the "Ralph Wiggum technique" (coined by Geoffrey
+Huntley) — an orchestration pattern for autonomous AI coding agents. In its
+simplest form:
 
 ```bash
 while :; do cat PROMPT.md | agent ; done
@@ -31,12 +33,13 @@ while :; do cat PROMPT.md | agent ; done
 An infinite loop repeatedly feeds a prompt to an AI coding agent. Progress
 persists in files and git history, not in the LLM context window. When context
 fills up, the agent terminates, the loop restarts with a fresh context, and the
-agent resumes from the state on disk. The spec and implementation plan serve as
-the source of truth, not the conversation history.
+agent resumes from the state on disk.
 
-A Ralph environment needs: an agent CLI (e.g., claude-code, opencode), git, and
-a working directory. It does not need SSH, interactive shell customization,
-editor, or prompt theming.
+An environment for this use case needs: an agent CLI (e.g., claude-code,
+opencode), git, and a working directory. It does not need SSH, interactive shell
+customization, editor, or prompt theming. This illustrates why a single
+monolithic environment is insufficient — different use cases require different
+tool selections built on the same foundation.
 
 ## Architecture
 
@@ -45,23 +48,45 @@ editor, or prompt theming.
 ```
 ubuntu:24.04
   └─ repo-base
+       └─ <env>-base
+            └─ <env>
+                 └─ <env>-project-*
+```
+
+The current environment following this pattern:
+
+```
+ubuntu:24.04
+  └─ repo-base
+       └─ devenv-base
+            └─ devenv
+                 └─ devenv-project-*
+```
+
+Future environments add sibling branches from `repo-base`:
+
+```
+ubuntu:24.04
+  └─ repo-base
        ├─ devenv-base
        │    └─ devenv
        │         └─ devenv-project-*
        │
-       └─ ralph-base
-            └─ ralph
-                 └─ ralph-project-*
+       └─ <env>-base
+            └─ <env>
+                 └─ <env>-project-*
 ```
 
-Three layers, two branches:
+Three core layers per environment:
 
 1. **repo-base** — shared foundation for all environments.
-2. **Environment base** — environment-specific OS-level setup (devenv-base,
-   ralph-base).
-3. **Environment image** — complete environment with tools aggregated via
-   multi-stage builds (devenv, ralph).
-4. **Project extensions** — project-specific layers on top of any environment.
+2. **Environment base** (`<env>-base`) — environment-specific OS-level setup.
+3. **Environment image** (`<env>`) — complete environment with tools aggregated
+   via multi-stage builds.
+
+Project extensions are optional per-project layers on top of any environment
+image. They are not part of the core architecture but allow projects to add
+dependencies specific to their needs.
 
 ### Why Not a Separate Tools Base Image
 
@@ -85,12 +110,6 @@ docker/
       Dockerfile.project         # Generic project extension
       Dockerfile.python-uv       # Python project extension
       README.md
-  ralph/
-    Dockerfile.base              # ralph-base: headless agent base
-    Dockerfile.ralph             # ralph: complete agent environment
-    templates/
-      Dockerfile.project         # Generic Ralph project extension
-      README.md
 shared/
   bash/
     log.sh                       # Shared logging library
@@ -101,12 +120,16 @@ specs/
 plans/
   ...
 bin/
-  build-devenv                   # Build management (extended for multi-env)
+  build-devenv                   # Build management
   devenv                         # Runtime launcher (devenv)
-  ralph                          # Runtime launcher (ralph) [future]
 scripts/
-  install-devenv                 # Installation script (extended for multi-env)
+  install-devenv                 # Installation script
 ```
+
+Future environments add a `docker/<env>/` directory following the same layout as
+`docker/devenv/` (a `Dockerfile.base`, a `Dockerfile.<env>`, and optionally a
+`templates/` directory). They may also add a `bin/<env>` runtime launcher and
+a corresponding entry in `scripts/install-devenv`.
 
 ## Image Specifications
 
@@ -115,6 +138,8 @@ scripts/
 **Path:** `docker/base/Dockerfile.base`
 
 **Image name:** `repo-base:latest`
+
+**Label:** `repo-base=true`
 
 **Responsibilities:**
 
@@ -146,12 +171,12 @@ scripts/
 - `sudo`
 - `wget`
 
-These are the minimal set required by nearly all tool installers and both
+These are the minimal set required by nearly all tool installers and all
 environment types.
 
 **Notable exclusion:** `openssh-client` and `openssh-server` are not installed
-here. SSH is an interactive devenv concern. The ralph environment does not need
-an SSH server. Environments that need SSH install it in their own base image.
+here. SSH is an interactive devenv concern. Environments that need SSH install
+it in their own base image.
 
 ### Devenv Base Image
 
@@ -176,84 +201,24 @@ This image is equivalent to the current `devenv-base:latest` but built on top of
 
 **Image name:** `devenv:latest`
 
-**FROM:** `devenv-base:latest` (for build stages), `common_utils` (for final
-stage)
+**FROM:** `repo-base:latest` (for `tool_*` build stages), `devenv-base:latest`
+(for `common_utils`), `common_utils` (for final stage)
 
-No changes to the existing multi-stage structure. The `common_utils` stage and
-all `tool_*` stages continue to use `devenv-base:latest` as their build base.
-The final `devenv` stage composes tool artifacts via `COPY --from=tool_*`.
-
-### Ralph Base Image
-
-**Path:** `docker/ralph/Dockerfile.base`
-
-**Image name:** `ralph-base:latest`
-
-**FROM:** `repo-base:latest`
-
-**Responsibilities (additive to repo-base):**
-
-- Headless-specific configuration (no SSH server, no interactive shell setup)
-- Ensure git is configured for non-interactive use
-- Pre-create working directory structure
-
-**What ralph-base does NOT include:**
-
-- SSH server or client
-- Shell prompt (starship)
-- Editor (nvim)
-- Fuzzy finder (fzf)
-
-**Build Arguments:** Same as repo-base (`USERNAME`, `USER_UID`, `USER_GID`),
-passed through.
-
-### Ralph Image
-
-**Path:** `docker/ralph/Dockerfile.ralph`
-
-**Image name:** `ralph:latest`
-
-**FROM:** `ralph-base:latest` (for build stages and final stage)
-
-**Structure:** Multi-stage build following the same pattern as
-`Dockerfile.devenv`. Build stages install tools independently, final stage
-aggregates via `COPY --from=tool_*`.
-
-**Tool set (minimal for agent loops):**
-
-| Tool      | Purpose                                     |
-|-----------|---------------------------------------------|
-| `git`     | Already in repo-base                        |
-| `jq`      | JSON processing for API responses           |
-| `yq`      | YAML processing for config files            |
-| `gh`      | GitHub CLI for PR/issue workflows           |
-| `opencode`| AI coding agent                             |
-| `ripgrep` | Code search (used by agents)                |
-| `uv`      | Python package manager (if needed by agent) |
-| `node`    | Runtime for agent tooling                   |
-| `fnm`     | Node version management                     |
-
-Tools explicitly excluded from ralph:
-
-| Tool          | Reason                       |
-|---------------|------------------------------|
-| `nvim`        | Interactive editor           |
-| `fzf`         | Interactive fuzzy finder     |
-| `starship`    | Interactive shell prompt     |
-| `copilot-cli` | Interactive assistant        |
-| `common-utils`| Interactive CLI conveniences |
-
-The ralph tool set is deliberately minimal. Additional tools can be added to
-ralph-project extensions as needed.
+The `tool_*` build stages change their FROM from `devenv-base:latest` to
+`repo-base:latest` (see [Shared Tools](#shared-tools)). The `common_utils` stage
+remains `FROM devenv-base:latest` because it installs interactive CLI utilities
+that belong to the devenv environment. The final `devenv` stage composes tool
+artifacts via `COPY --from=tool_*`.
 
 ### Project Extensions
 
-Both environments support project-specific extensions:
+Environment images support project-specific extensions:
 
 **Devenv projects:** `<project>/.devenv/Dockerfile` extends `devenv:latest`
 (unchanged from current behavior).
 
-**Ralph projects:** `<project>/.ralph/Dockerfile` extends `ralph:latest`.
+Future environments follow the same pattern: `<project>/.<env>/Dockerfile`
+extends `<env>:latest`.
 
 ## Shared Tools
 
@@ -271,13 +236,39 @@ This changes to:
 FROM repo-base:latest AS tool_<name>
 ```
 
-This decouples tool builds from any specific environment. Both `Dockerfile.devenv`
-and `Dockerfile.ralph` can reference the same tool stages.
+This decouples tool builds from any specific environment. Any environment
+Dockerfile can reference the same tool stages.
 
-**Exception:** Tools that depend on other tools (e.g., `ripgrep` depends on
-`jq`, `tree-sitter` depends on `node`) continue to use `COPY --from=` for
-inter-stage dependencies. These references are unaffected by the base image
-change.
+**Exception — inter-tool dependencies:** Two tools have a second `FROM`
+statement that pulls in a pre-built standalone tool image (not a build stage
+within the same Dockerfile). These inter-tool `FROM` references are distinct
+from the base image `FROM` and follow a different migration path:
+
+- **Base image FROM** changes `devenv-base:latest` → `repo-base:latest`
+  (same as all other tool Dockerfiles).
+- **Inter-tool FROM** changes `devenv-tool-<name>:latest` → `tools-<name>:latest`
+  to match the updated standalone tag convention (see [Image Tagging](#image-tagging)).
+
+The two affected tools:
+
+| Tool | Depends on | Current inter-tool FROM | Migrated inter-tool FROM |
+|------|-----------|-------------------------|--------------------------|
+| `ripgrep` | `jq` | `FROM devenv-tool-jq:latest AS jq_source` | `FROM tools-jq:latest AS jq_source` |
+| `tree-sitter` | `node` | `FROM devenv-tool-node:latest AS tool_node` | `FROM tools-node:latest AS tool_node` |
+
+In both cases, the standalone tool image is referenced via a `FROM` statement
+(creating a named stage), and the binary or directory is then copied into the
+final stage with `COPY --from=<stage_name>`. For example, `Dockerfile.ripgrep`
+uses `FROM devenv-tool-jq:latest AS jq_source` followed by
+`COPY --from=jq_source /usr/local/bin/jq /usr/local/bin/jq`.
+
+**Build script impact:** The `build_tool()` function in `bin/build-devenv`
+(lines 164-168) resolves inter-tool dependencies at build time — it checks
+whether `devenv-tool-node:latest` exists before building `tree-sitter` and
+builds the `node` tool first if missing. This dependency check must be updated
+to look for `tools-node:latest` instead of `devenv-tool-node:latest`, and the
+tool image tag at line 174 must change from `devenv-tool-<name>:latest` to
+`tools-<name>:latest`.
 
 ### Tool Stages in Environment Dockerfiles
 
@@ -292,8 +283,8 @@ FROM devenv-base:latest AS tool_cargo
 FROM repo-base:latest AS tool_cargo
 ```
 
-`Dockerfile.ralph` follows the same pattern, defining only the tool stages it
-needs.
+Future environment Dockerfiles follow the same pattern, defining only the tool
+stages they need.
 
 ## Build Pipeline
 
@@ -315,22 +306,12 @@ repo-base:latest
     │       ↓
     │   devenv-project-*:latest
     │
-    ├── docker/ralph/Dockerfile.base (headless config)
-    │       ↓
-    │   ralph-base:latest
-    │       ↓
-    │   docker/ralph/Dockerfile.ralph (agent tools)
-    │       ↓
-    │   ralph:latest
-    │       ↓
-    │   <project>/.ralph/Dockerfile
-    │       ↓
-    │   ralph-project-*:latest
-    │
     └── shared/tools/Dockerfile.* (FROM repo-base, standalone testing)
             ↓
-        devenv-tool-*:latest (unchanged tag convention)
+        tools-*:latest
 ```
+
+Future environments extend the graph with sibling branches from `repo-base`.
 
 ### Auto-Dependency Resolution
 
@@ -340,8 +321,6 @@ The build script resolves dependencies automatically:
 |--------------------------|----------------------------------|
 | `--stage devenv-base`    | `repo-base`                      |
 | `--stage devenv`         | `repo-base`, `devenv-base`       |
-| `--stage ralph-base`     | `repo-base`                      |
-| `--stage ralph`          | `repo-base`, `ralph-base`        |
 | `--tool <name>`          | `repo-base`                      |
 | `--project <path>`       | full chain for detected env type |
 
@@ -352,41 +331,29 @@ The build script resolves dependencies automatically:
 | Repo base        | `repo-base:<timestamp>`, `repo-base:latest` | `repo-base:20260219.143022` |
 | Devenv base      | `devenv-base:<timestamp>`, `devenv-base:latest` | `devenv-base:20260219.143025` |
 | Devenv           | `devenv:<timestamp>`, `devenv:latest` | `devenv:20260219.143100` |
-| Ralph base       | `ralph-base:<timestamp>`, `ralph-base:latest` | `ralph-base:20260219.143022` |
-| Ralph            | `ralph:<timestamp>`, `ralph:latest` | `ralph:20260219.143050` |
-| Tool (standalone)| `devenv-tool-<name>:latest`         | `devenv-tool-cargo:latest` |
+| Tool (standalone)| `tools-<name>:latest`               | `tools-cargo:latest`     |
 | Devenv project   | `devenv-project-<parent>-<name>:latest` | `devenv-project-local-api:latest` |
-| Ralph project    | `ralph-project-<parent>-<name>:latest` | `ralph-project-local-api:latest` |
+
+Future environments follow the same tagging convention: `<env>-base:<timestamp>`,
+`<env>:<timestamp>`, and `<env>-project-<parent>-<name>:latest`.
 
 ## Build Script Changes
 
 ### Extended CLI
 
 ```
-build-devenv --stage <stage>       # base, devenv-base, devenv, ralph-base, ralph
+build-devenv --stage <stage>       # base, devenv-base, devenv
 build-devenv --tool <tool>         # Unchanged
-build-devenv --project <path>      # Auto-detects .devenv/ or .ralph/
+build-devenv --project <path>      # Detects .devenv/ in project
 ```
 
-The `--stage` argument expands to include:
+The `--stage` argument expands to include `base` for the repo-base image:
 
 | Stage          | Dockerfile                       | Image              |
 |----------------|----------------------------------|--------------------|
 | `base`         | `docker/base/Dockerfile.base`    | `repo-base:latest` |
 | `devenv-base`  | `docker/devenv/Dockerfile.base`  | `devenv-base:latest` |
 | `devenv`       | `docker/devenv/Dockerfile.devenv`| `devenv:latest`    |
-| `ralph-base`   | `docker/ralph/Dockerfile.base`   | `ralph-base:latest` |
-| `ralph`        | `docker/ralph/Dockerfile.ralph`  | `ralph:latest`     |
-
-### Project Detection
-
-`--project <path>` inspects the project directory for:
-
-1. `<path>/.devenv/Dockerfile` — builds as devenv project (FROM `devenv:latest`)
-2. `<path>/.ralph/Dockerfile` — builds as ralph project (FROM `ralph:latest`)
-
-If both exist, the build script requires explicit disambiguation (error with
-guidance).
 
 ## Runtime Interface
 
@@ -395,85 +362,47 @@ guidance).
 The existing `bin/devenv` script is unchanged. It manages interactive
 development containers with SSH, volumes, and config mounts.
 
-### Ralph Runtime
-
-A new `bin/ralph` script manages headless agent containers. Its interface mirrors
-`bin/devenv` but is adapted for non-interactive use:
-
-```
-ralph <path>                      # Start ralph container for project
-ralph list                        # List running ralph containers
-ralph stop <path>                 # Stop ralph container
-ralph stop --all                  # Stop all ralph containers
-ralph logs <path>                 # View agent output logs
-```
-
-Key differences from devenv:
-
-| Concern              | devenv                          | ralph                           |
-|----------------------|---------------------------------|---------------------------------|
-| Container start      | `sleep infinity` + `sshd`       | Agent loop command              |
-| User interaction     | `docker exec -it` (interactive) | `docker logs` (observe)         |
-| SSH                  | Yes, localhost-bound             | No                              |
-| Config mounts        | Shell, editor, prompt configs   | Git config, agent config only   |
-| Volumes              | `devenv-data/cache/state`       | `ralph-data/cache/state`        |
-| Container naming     | `devenv-<parent>-<name>`        | `ralph-<parent>-<name>`         |
-| Container labels     | `devenv=true`                   | `ralph=true`                    |
-
-### Ralph Container Lifecycle
-
-Ralph containers are not persistent in the same way as devenv containers. A
-ralph container runs the agent loop as its main process. When the loop completes
-(or is stopped), the container exits and is removed (`--rm`).
-
-```bash
-docker run -d --rm \
-  --name ralph-<parent>-<project> \
-  --user devuser:devuser \
-  --workdir /home/devuser/<relative_project_path> \
-  --label ralph=true \
-  --label ralph.project=<parent>/<project> \
-  -v "ralph-data:/home/devuser/.local/share" \
-  -v "ralph-cache:/home/devuser/.cache" \
-  -v "ralph-state:/home/devuser/.local/state" \
-  -v "<project_path>:/home/devuser/<relative_project_path>:rw" \
-  -v "$HOME/.gitconfig:/home/devuser/.gitconfig:ro" \
-  -v "$HOME/.gitconfig-*:/home/devuser/.gitconfig-*:ro" \
-  -v "$HOME/.config/git/config:/home/devuser/.config/git/config:ro" \
-  -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
-  -v "$SSH_AUTH_SOCK:/ssh-agent:ro" \
-  -e SSH_AUTH_SOCK=/ssh-agent \
-  -e TERM \
-  --network bridge \
-  ralph:latest \
-  bash -lc "while :; do cat PROMPT.md | opencode ; done"
-```
-
-The agent command and prompt file are configurable per project (defined in the
-project's `.ralph/` directory).
+Future environments will have their own runtime launchers (`bin/<env>`) tailored
+to their specific use cases, following patterns appropriate for their purpose
+(e.g., interactive attachment, log observation, headless execution).
 
 ## Persistent Volumes
 
-Ralph uses its own set of named volumes, separate from devenv:
+Each environment maintains its own set of named volumes, separate from other
+environments. The devenv volumes are defined in the
+[persistent volumes spec](persistent-volumes.md).
 
-| Volume Name    | Container Mount Point          | Purpose                        |
-|----------------|--------------------------------|--------------------------------|
-| `ralph-data`   | `/home/devuser/.local/share`   | Agent state, session data      |
-| `ralph-cache`  | `/home/devuser/.cache`         | Package caches                 |
-| `ralph-state`  | `/home/devuser/.local/state`   | Logs, history                  |
+Future environments follow the same XDG-based naming convention with their own
+prefix (e.g., `<env>-data`, `<env>-cache`, `<env>-state`). Separate volumes
+prevent environments from polluting each other's state.
 
-Separate volumes prevent agent loops from polluting devenv state and vice versa.
-The volume naming and labeling conventions mirror devenv (`ralph-` prefix,
-`ralph=true` label).
+## Extending the Architecture
+
+To add a new environment:
+
+1. Create `docker/<env>/Dockerfile.base` — `FROM repo-base:latest`, add
+   environment-specific OS-level configuration.
+2. Create `docker/<env>/Dockerfile.<env>` — multi-stage build composing tool
+   stages (`FROM repo-base:latest`) and the environment base, following the same
+   pattern as `Dockerfile.devenv`.
+3. Optionally create `docker/<env>/templates/` with project extension templates.
+4. Create `bin/<env>` — runtime launcher for the environment.
+5. Add `--stage <env>-base` and `--stage <env>` to `build-devenv` (or create a
+   dedicated build script if warranted).
+6. Define the environment's persistent volume set.
+7. Write a specification for the environment.
+
+Each environment owns its specification, tool selection, runtime behavior, and
+volume layout. The shared architecture provides the foundation: `repo-base`,
+shared tool Dockerfiles, and the layered image pattern.
 
 ## Non-Goals
 
 - Changing the devenv runtime behavior or interface.
-- Sharing Docker volumes between devenv and ralph environments.
-- Supporting more than two environment types in this iteration (the architecture
-  accommodates future environments, but only devenv and ralph are specified).
-- Implementing a full Ralph orchestration framework. This spec covers the
-  container infrastructure; the agent loop configuration is project-specific.
+- Sharing Docker volumes between environments.
+- Implementing future environment specifications in this iteration. This spec
+  covers the shared architecture and the structural changes needed to support
+  multiple environments. Individual environment specs are separate documents.
 - Renaming the repository. The repo name `devenv` predates multi-env support.
   The `docker/base/` directory and `repo-base` image name establish the shared
   foundation without requiring a repo rename.
