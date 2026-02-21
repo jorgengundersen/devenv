@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.5.0] - 2026-02-21
+
+### Added
+- `repo-base` image with shared foundation for tool layers.
+- New opencode helper commands for research, implementation plans, and commits.
+- Multi-environment architecture spec, research, and implementation plan docs.
+
+### Changed
+- Three-layer build architecture across `repo-base`, `devenv-base`, and `devenv` images.
+- Tool images now base on `repo-base` for a consistent foundation.
+- `bin/build-devenv` updated for the three-layer build pipeline.
+- `README.md` and `CONTRIBUTING.md` updated for the new architecture.
+- Updated multi-environment architecture documentation, including generalized references and plan deltas.
+
 ## [1.4.0] - 2026-02-19
 
 ### Added
