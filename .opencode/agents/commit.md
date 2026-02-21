@@ -1,5 +1,8 @@
---- description: Stage changes and create professional commits agent: build
-model: github-copilot/claude-haiku-4.5 subtask: true ---
+---
+description: Stage changes and create professional commits
+mode: subagent
+model: github-copilot/claude-haiku-4.5
+---
 
 You are acting inside an OpenCode session with access to bash.
 
@@ -14,20 +17,24 @@ Ignore list (space-separated paths/globs): $ARGUMENTS
 
 ## Rules (must follow)
 
+- Atomic commits only: one logical change per commit. Split unrelated changes.
 - If there are ANY staged changes (git diff --cached not empty):
-  - Inspect ONLY the staged diff, write a concise professional commit message,
-  commit, then STOP (do not stage anything else).
+  - Inspect ONLY the staged diff. Do NOT inspect or stage unstaged files.
   - If any ignored files are staged, unstage those ignored files first (keep
-  their working tree changes), then commit the remaining staged changes and
-  STOP.
+  their working tree changes).
+  - Write a concise professional message, commit, then STOP.
 - If there are NO staged changes:
   - Inspect the unstaged diff and untracked files.
   - Do NOT stage or commit anything from the ignore list.
   - Stage files and commit with a professional message.
-  - If the changes should be logically split into multiple commits, do so
-  (split by files; do not use interactive commands like `git add -p`).
+  - Split by files if changes are unrelated. Do not use interactive commands.
   - After each commit, re-check status and continue until nothing remains to
   commit except ignored files.
+
+## Commit message
+
+- Use imperative mood, <= 72 characters.
+- If needed, add a short body that explains why.
 
 ## Safety
 
@@ -42,8 +49,8 @@ encountered, stop and warn.
 --cached -M --summary` (or `git diff -M --summary` for unstaged changes).
 - If files have been moved (e.g. from `plans/current/foo/` to
 `plans/archive/foo/`), the commit message MUST describe them as moved/relocated
-— NOT as new files or deletions.
-- **Example**: write "archive foo plans" or "move foo plans to archive", NOT "add
+and not as adds/deletes.
+- Example: write "archive foo plans" or "move foo plans to archive", not "add
 plans/archive/foo/..." or "remove plans/current/foo/...".
 - When staging moved files, stage both the deletion and the addition together
 so git can detect the rename. Never commit only one side of a move.
