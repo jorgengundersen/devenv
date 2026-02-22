@@ -30,7 +30,7 @@ RUN nix-channel --update \
 RUN curl -fsSL https://opencode.ai/install | bash
 
 # Create ralph user
-RUN echo "ralph:x:1000:1000:Ralph AI Agent:/home/ralph:/bin/bash" >> /etc/passwd \
+RUN echo "ralph:x:1000:1000:Ralph Wiggum:/home/ralph:/bin/bash" >> /etc/passwd \
     && echo "ralph:x:1000:" >> /etc/group \
     && mkdir -p /home/ralph \
     && chown 1000:1000 /home/ralph
