@@ -53,6 +53,9 @@ COPY .gitconfig /home/ralph/.gitconfig
 RUN mkdir -p /home/ralph/.config/opencode
 COPY opencode.json /home/ralph/.config/opencode/opencode.json
 
+# Prepare OpenCode data dir so file bind mounts work.
+RUN mkdir -p /home/ralph/.local/share/opencode
+
 # Copy the ralph-loop script
 COPY ralph-loop /usr/local/bin/ralph-loop
 RUN chmod +x /usr/local/bin/ralph-loop

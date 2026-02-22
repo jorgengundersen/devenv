@@ -92,6 +92,8 @@ Run OpenCode once against the prompt, useful for testing:
 ```bash
 docker run --rm -it \
     -v "$(pwd):/workspace:rw" \
+    -v "$HOME/.config/opencode:/home/ralph/.config/opencode:ro" \
+    -v "$HOME/.local/share/opencode/auth.json:/home/ralph/.local/share/opencode/auth.json:ro" \
     -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
     ralph:latest \
     opencode run "$(cat .ralph/PROMPT.md)"
@@ -104,6 +106,8 @@ Run the continuous loop:
 ```bash
 docker run --rm -it \
     -v "$(pwd):/workspace:rw" \
+    -v "$HOME/.config/opencode:/home/ralph/.config/opencode:ro" \
+    -v "$HOME/.local/share/opencode/auth.json:/home/ralph/.local/share/opencode/auth.json:ro" \
     -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
     ralph:latest \
     ralph-loop
@@ -139,6 +143,14 @@ them easy to identify and review before pushing.
 
 Ralph needs an API key for the LLM provider. Pass it as an environment variable
 when running the container:
+
+Ralph can also reuse the same OpenCode credentials as `devenv` by bind-mounting
+your host OpenCode config directory and auth file:
+
+```bash
+-v "$HOME/.config/opencode:/home/ralph/.config/opencode:ro"
+-v "$HOME/.local/share/opencode/auth.json:/home/ralph/.local/share/opencode/auth.json:ro"
+```
 
 ```bash
 # Anthropic
