@@ -1,0 +1,75 @@
+#!/bin/bash
+set -euo pipefail
+
+# ralph-loop - Run OpenCode in a continuous Ralph Wiggum loop
+
+# --- Constants ---
+readonly PROMPT_FILE="${RALPH_PROMPT_FILE:-/workspace/.ralph/PROMPT.md}"
+readonly LOOP_DELAY_SECONDS=2
+
+# --- Logging ---
+
+_log() {
+    local level="$1"; shift
+    printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
+}
+
+log_info() { _log "INFO" "$@"; }
+log_error() { _log "ERROR" "$@"; }
+
+die() { log_error "$@"; exit 1; }
+
+# --- Primitives ---
+
+validate_prompt_file() {
+    if [[ ! -f "${PROMPT_FILE}" ]]; then
+        die "Prompt file not found: ${PROMPT_FILE}"
+    fi
+    if [[ ! -s "${PROMPT_FILE}" ]]; then
+        die "Prompt file is empty: ${PROMPT_FILE}"
+    fi
+}
+
+run_opencode() {
+    local prompt
+    local rc=0
+    prompt=$(<"${PROMPT_FILE}")
+
+    log_info "Sending prompt to OpenCode..."
+    opencode run "${prompt}" || rc=$?
+
+    if (( rc != 0 )); then
+        log_error "OpenCode exited with non-zero status: ${rc}"
+        return 1
+    fi
+}
+
+# --- Commands ---
+
+run_loop() {
+    local iteration=1
+
+    validate_prompt_file
+
+    log_info "Starting Ralph loop with prompt: ${PROMPT_FILE}"
+    log_info "Working directory: $(pwd)"
+
+    while :; do
+        log_info "--- Iteration ${iteration} ---"
+
+        run_opencode || log_error "Iteration ${iteration} failed, continuing..."
+
+        iteration=$((iteration + 1))
+        sleep "${LOOP_DELAY_SECONDS}"
+    done
+}
+
+# --- Entrypoint ---
+
+main() {
+    run_loop
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
