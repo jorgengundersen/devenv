@@ -246,9 +246,9 @@ Rules:
 - Container paths generally mirror the host structure under `/home/devuser/`.
   Exception: opencode config is sourced from the repository file
   `shared/config/opencode/opencode.devenv.jsonc`, mounted read-only at
-  `/home/devuser/.config/opencode.jsonc`, and `OPENCODE_CONFIG` defaults to
-  that container path when unset. The host directory `~/.config/opencode/` is
-  not mounted.
+  `/home/devuser/.config/opencode/opencode.jsonc`, and
+  `OPENCODE_CONFIG` defaults to that container path when unset. The host
+  directory `~/.config/opencode/` is not mounted.
 
 ### Step 2: Update README.md
 

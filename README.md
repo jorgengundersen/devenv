@@ -212,12 +212,12 @@ The following host configurations are mounted into containers:
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
-| opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode.jsonc` |
+| opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode/opencode.jsonc` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
 
-For `opencode`, devenv uses the repository config file `shared/config/opencode/opencode.devenv.jsonc` and bind-mounts it read-only to `/home/devuser/.config/opencode.jsonc`. The host directory `~/.config/opencode/` is not mounted. When `OPENCODE_CONFIG` is not set, it defaults to `/home/devuser/.config/opencode.jsonc`.
+For `opencode`, devenv uses the repository config file `shared/config/opencode/opencode.devenv.jsonc` and bind-mounts it read-only to `/home/devuser/.config/opencode/opencode.jsonc`. The host directory `~/.config/opencode/` is not mounted. When `OPENCODE_CONFIG` is not set, it defaults to `/home/devuser/.config/opencode/opencode.jsonc`.
 
 ## Persistent Volumes
 

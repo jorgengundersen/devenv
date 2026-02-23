@@ -3,6 +3,7 @@
     "permission": {
         "*": "allow",
         "bash": {
+            "*": "allow",
             "gh *": "deny",
             "git push *": "deny"
         }

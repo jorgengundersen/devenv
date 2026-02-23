@@ -13,6 +13,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Changed
 - OpenCode configuration and container mount handling.
+- Devenv now mounts `shared/config/opencode/opencode.devenv.jsonc` to `/home/devuser/.config/opencode/opencode.jsonc` (directory-based path) and defaults `OPENCODE_CONFIG` to the same target.
 - Documentation for OpenCode configuration, SSH publish fallback, and archived plans.
 - Commit subagent moved under `agents/` and `.gitignore` updated.
 

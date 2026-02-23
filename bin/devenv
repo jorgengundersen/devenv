@@ -183,6 +183,7 @@ build_mounts() {
     local container_project_path
     local -n mounts_ref="$2"
     local opencode_config_host="${DEVENV_HOME}/shared/config/opencode/opencode.devenv.jsonc"
+    local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
 
     mounts_ref=()
     container_project_path=$(resolve_container_project_path "${project_path}")
@@ -229,7 +230,7 @@ build_mounts() {
         mounts_ref+=("-v" "${HOME}/.config/gh-copilot:/home/devuser/.config/gh-copilot:ro")
     fi
     if [[ -f "${opencode_config_host}" ]]; then
-        mounts_ref+=("-v" "${opencode_config_host}:/home/devuser/.config/opencode.jsonc:ro")
+        mounts_ref+=("-v" "${opencode_config_host}:${opencode_config_container}:ro")
     fi
     if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
@@ -245,6 +246,7 @@ build_mounts() {
 # Build docker env flags into an array.
 build_env_vars() {
     local -n env_ref="$1"
+    local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
 
     env_ref=()
     if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
@@ -252,7 +254,7 @@ build_env_vars() {
     fi
     env_ref+=("-e" "TERM=${TERM:-xterm-256color}")
     if [[ -z "${OPENCODE_CONFIG:-}" ]]; then
-        env_ref+=("-e" "OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc")
+        env_ref+=("-e" "OPENCODE_CONFIG=${opencode_config_container}")
     fi
 }
 

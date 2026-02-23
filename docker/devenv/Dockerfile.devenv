@@ -204,6 +204,7 @@ RUN ln -sf /opt/nvim-linux-x86_64/share/nvim /usr/local/share/nvim
 # tools like starship that write to ~/.cache at runtime).
 RUN mkdir -p /home/devuser/.cache \
     /home/devuser/.config \
+    /home/devuser/.config/opencode \
     /home/devuser/.local/bin \
     /home/devuser/.local/share \
     /home/devuser/.local/share/opencode/log \
