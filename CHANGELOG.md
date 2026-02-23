@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [1.6.0] - 2026-02-23
+
+### Added
+- Ralph autonomous agent container setup, plus primary/helper/proposal/review agent specs.
+- Host OpenCode credential reuse for Ralph.
+- Devuser config directory creation to prevent permission errors.
+
+### Changed
+- OpenCode configuration and container mount handling.
+- Documentation for OpenCode configuration, SSH publish fallback, and archived plans.
+- Commit subagent moved under `agents/` and `.gitignore` updated.
+
 ## [1.5.0] - 2026-02-21
 
 ### Added
