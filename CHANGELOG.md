@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [1.6.0] - 2026-02-23
 
+## [1.6.1] - 2026-02-23
+
+### Added
+- New OpenCode config file at `shared/config/opencode/opencode.devenv.jsonc` for directory-based mounts.
+
+### Changed
+- Standardized OpenCode config mount path under `/home/devuser/.config/opencode/opencode.jsonc`.
+- Simplified agent definitions by removing redundant bash permission blocks.
+- Moved `review-report.md` into `plans/reports/` and updated documentation.
+- Updated `bin/devenv` and `docker/devenv/Dockerfile.devenv` for revised config and mount handling.
+- Refreshed docs and specs to align with the new config path and report location.
+
 ### Added
 - Ralph autonomous agent container setup, plus primary/helper/proposal/review agent specs.
 - Host OpenCode credential reuse for Ralph.
