@@ -217,6 +217,8 @@ The following host configurations are mounted into containers:
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
 
+For `opencode`, devenv uses the repository config file `shared/config/opencode/opencode.devenv.jsonc` and bind-mounts it read-only to `/home/devuser/.config/opencode.jsonc`. The host directory `~/.config/opencode/` is not mounted. When `OPENCODE_CONFIG` is not set, it defaults to `/home/devuser/.config/opencode.jsonc`.
+
 ## Persistent Volumes
 
 Runtime state is stored in named Docker volumes that persist across container restarts:
@@ -251,7 +253,7 @@ docker build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -f dock
 - Containers run as `devuser` (non-privileged user)
 - SSH agent is forwarded for secure key access
 - SSH `authorized_keys` is bind-mounted at runtime for inbound SSH access (sshd starts only when present)
-- SSH binds to `127.0.0.1` only; port priority is `--port`, then `DEVENV_SSH_PORT`, then an allocated port
+- SSH publish uses `127.0.0.1` first; port priority is `--port`, then `DEVENV_SSH_PORT`, then an allocated port. If Docker's forwarder returns `/forwards/expose ... 500` for localhost publish, devenv retries with host-interface publish on the same port.
 - Tool configurations are mounted read-only from host
 - Persistent volumes use the `devenv-` prefix and carry the `devenv=true` label for discovery and safe cleanup
 

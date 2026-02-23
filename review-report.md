@@ -3,6 +3,12 @@
 **Date:** 2026-02-21
 **Reviewer:** Automated (claude-opus-4.6)
 
+## Status update (2026-02-23)
+
+- `P0-3` (`gh-copilot` mount undocumented) is resolved in `README.md`.
+- `P1-2` (`opencode/auth.json` mount undocumented) is resolved in `README.md`.
+- `README.md` now also documents repo-managed opencode config mount behavior (`shared/config/opencode/opencode.devenv.jsonc` -> `/home/devuser/.config/opencode.jsonc`) and the Docker forwarder `/forwards/expose ... 500` SSH publish fallback.
+
 ## Findings
 
 ### P0 — Broken / Spec-Violating

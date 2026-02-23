@@ -243,7 +243,12 @@ Rules:
 - Always wrap in an `if` that checks the path exists. The mount is skipped
   silently when the host path is absent.
 - Use `:ro` (read-only) for configuration. Only the project directory uses `:rw`.
-- Container paths mirror the host structure under `/home/devuser/`.
+- Container paths generally mirror the host structure under `/home/devuser/`.
+  Exception: opencode config is sourced from the repository file
+  `shared/config/opencode/opencode.devenv.jsonc`, mounted read-only at
+  `/home/devuser/.config/opencode.jsonc`, and `OPENCODE_CONFIG` defaults to
+  that container path when unset. The host directory `~/.config/opencode/` is
+  not mounted.
 
 ### Step 2: Update README.md
 

@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Tool images now base on `repo-base` for a consistent foundation.
 - `bin/build-devenv` updated for the three-layer build pipeline.
 - `README.md` and `CONTRIBUTING.md` updated for the new architecture.
+- Documentation now explicitly states opencode uses repo-managed `shared/config/opencode/opencode.devenv.jsonc` mounted to `/home/devuser/.config/opencode.jsonc` (no host `~/.config/opencode/` mount), and records SSH localhost-publish fallback behavior when Docker forwarder returns `/forwards/expose ... 500`.
 - Updated multi-environment architecture documentation, including generalized references and plan deltas.
 
 ## [1.4.0] - 2026-02-19

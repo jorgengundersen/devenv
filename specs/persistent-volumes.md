@@ -151,12 +151,15 @@ docker run -d --rm \
   -v "$HOME/.bashrc:/home/devuser/.bashrc:ro" \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
-  -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
+  -v "$DEVENV_HOME/shared/config/opencode/opencode.devenv.jsonc:/home/devuser/.config/opencode.jsonc:ro" \
   -v "$HOME/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro" \
+  -e OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc \
   ...
   <image_name> \
   bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
 ```
+
+`-e OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc` is included only when `OPENCODE_CONFIG` is not already set in the caller environment.
 
 ### Volume Management Commands
 

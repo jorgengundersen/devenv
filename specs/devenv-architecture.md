@@ -373,7 +373,7 @@ wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O 
 
 ## Configuration Mount Points
 
-Tool configurations are provided by the host system and mounted at container runtime. Mount points use equivalent paths in the container. All config mounts are read-only:
+Tool configurations are mounted at container runtime (from host dotfiles and repo-managed files). Mount points use equivalent paths in the container. All config mounts are read-only:
 
 | Tool | Host Path | Container Path |
 |------|-----------|----------------|
@@ -384,10 +384,14 @@ Tool configurations are provided by the host system and mounted at container run
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
-| opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
+| opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode.jsonc` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
+
+`OPENCODE_CONFIG` defaults to `/home/devuser/.config/opencode.jsonc` in the runtime environment only when `OPENCODE_CONFIG` is not already set.
+
+`~/.config/opencode/` from the host is not mounted; opencode config is provided from `shared/config/opencode/opencode.devenv.jsonc`.
 
 ### Git Configuration
 
@@ -531,6 +535,10 @@ SSH is pre-allocated and bound to localhost only:
 
 SSH is only enabled when `~/.ssh/authorized_keys` exists on the host.
 
+If SSH is enabled, the selected port is validated and must be an integer in the range `1-65535`; otherwise `devenv` exits with an error.
+
+If Docker rejects localhost publishing with `/forwards/expose returned unexpected status: 500`, `devenv` retries `docker run` with `<port>:22`.
+
 ### Docker Run Command Structure
 
 The full `docker run` command issued by `devenv` when starting a new container:
@@ -552,19 +560,25 @@ docker run -d --rm \
   -v "$HOME/.config/nvim/:/home/devuser/.config/nvim/:ro" \
   -v "$HOME/.config/starship/:/home/devuser/.config/starship/:ro" \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
-  -v "$HOME/.config/opencode/:/home/devuser/.config/opencode/:ro" \
+    -v "$DEVENV_HOME/shared/config/opencode/opencode.devenv.jsonc:/home/devuser/.config/opencode.jsonc:ro" \
+    -v "$HOME/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro" \
   -v "$HOME/.gitconfig:/home/devuser/.gitconfig:ro" \
   -v "$HOME/.gitconfig-*:/home/devuser/.gitconfig-*:ro" \
   -v "$HOME/.config/git/config:/home/devuser/.config/git/config:ro" \
   -v "$SSH_AUTH_SOCK:/ssh-agent:ro" \
   -v "$HOME/.ssh/authorized_keys:/home/devuser/.ssh/authorized_keys:ro" \
   -e SSH_AUTH_SOCK=/ssh-agent \
+    -e OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc \
   -e TERM \
   -p "127.0.0.1:<port>:22" \
   --network bridge \
   <image_name> \
   bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
 ```
+
+`-e OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc` is included only when `OPENCODE_CONFIG` is not already set in the caller environment.
+
+If the localhost publish fails with `/forwards/expose returned unexpected status: 500`, the run is retried with `-p "<port>:22"`.
 
 Then attach:
 
@@ -583,14 +597,16 @@ docker exec -it --workdir /home/devuser/<relative_project_path> devenv-<parent>-
 | `--workdir` | Start in the project directory (mirrors host `$HOME`-relative path) |
 | `--label` | Metadata for listing and filtering |
 | `-v` (project) | Bind mount project code at `$HOME`-relative path (read-write) |
-| `-v` (configs) | Mount tool configs from host (read-only) |
+| `-v` (configs) | Mount tool configs read-only (host dotfiles and repo-managed opencode config file) |
 | `-v` (git) | Mount git config files from host (read-only) |
 | `-v` (volumes) | Persistent named volumes for XDG data, cache, and state |
+| `-v` (opencode auth) | Mount host opencode auth file (read-only) |
 | `-v` (ssh-agent) | Forward host SSH agent for key access |
 | `-v` (authorized_keys) | Mount SSH authorized keys for sshd |
 | `-e SSH_AUTH_SOCK` | Point container to forwarded SSH agent |
+| `-e OPENCODE_CONFIG` | Point opencode to `/home/devuser/.config/opencode.jsonc` when not already set |
 | `-e TERM` | Preserve terminal capabilities |
-| `-p` | Bind SSH port to localhost only |
+| `-p` | Bind SSH port to localhost first; retry with `<port>:22` on the known Docker forwarder `500` case |
 | `--network bridge` | Standard Docker bridge networking |
 
 ### `devenv list` Output
