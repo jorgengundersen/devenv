@@ -212,7 +212,7 @@ The following host configurations are mounted into containers:
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
-| opencode | `~/.config/opencode/` | `/home/devuser/.config/opencode/` |
+| opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode.jsonc` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |

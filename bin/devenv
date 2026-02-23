@@ -3,6 +3,12 @@ set -euo pipefail
 
 # devenv - Runtime environment launcher for containerized development
 
+is_valid_port() {
+    local port="$1"
+
+    [[ "${port}" =~ ^[0-9]+$ ]] || return 1
+    ((port >= 1 && port <= 65535)) || return 1
+}
 # --- Constants ---
 DEVENV_HOME="${DEVENV_HOME:-$(
     script_path="${BASH_SOURCE[0]}"
@@ -176,6 +182,7 @@ build_mounts() {
     local project_path="$1"
     local container_project_path
     local -n mounts_ref="$2"
+    local opencode_config_host="${DEVENV_HOME}/shared/config/opencode/opencode.devenv.jsonc"
 
     mounts_ref=()
     container_project_path=$(resolve_container_project_path "${project_path}")
@@ -221,8 +228,8 @@ build_mounts() {
     if [[ -d "${HOME}/.config/gh-copilot" ]]; then
         mounts_ref+=("-v" "${HOME}/.config/gh-copilot:/home/devuser/.config/gh-copilot:ro")
     fi
-    if [[ -d "${HOME}/.config/opencode" ]]; then
-        mounts_ref+=("-v" "${HOME}/.config/opencode:/home/devuser/.config/opencode:ro")
+    if [[ -f "${opencode_config_host}" ]]; then
+        mounts_ref+=("-v" "${opencode_config_host}:/home/devuser/.config/opencode.jsonc:ro")
     fi
     if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
@@ -244,6 +251,9 @@ build_env_vars() {
         env_ref+=("-e" "SSH_AUTH_SOCK=/ssh-agent")
     fi
     env_ref+=("-e" "TERM=${TERM:-xterm-256color}")
+    if [[ -z "${OPENCODE_CONFIG:-}" ]]; then
+        env_ref+=("-e" "OPENCODE_CONFIG=/home/devuser/.config/opencode.jsonc")
+    fi
 }
 
 # Create devenv-managed Docker volumes if they do not already exist.
@@ -320,21 +330,33 @@ start_container() {
     local cpus="${DEVENV_CPUS:-${DEFAULT_CPUS}}"
 
     if [[ -n "${ssh_port}" ]]; then
-        docker run -d --rm \
-            --name "${container_name}" \
-            --label devenv=true \
-            --label "devenv.project=${project_label}" \
-            --memory "${mem}" \
-            --memory-swap "${mem_swap}" \
-            --cpus "${cpus}" \
-            --user devuser:devuser \
-            --workdir "${container_project_path}" \
-            -p "127.0.0.1:${ssh_port}:22" \
-            "${mounts[@]}" \
-            "${env_vars[@]}" \
-            --network bridge \
-            "${image_name}" \
-            bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
+        local -a common_args
+        common_args=(
+            -d --rm
+            --name "${container_name}"
+            --label devenv=true
+            --label "devenv.project=${project_label}"
+            --memory "${mem}"
+            --memory-swap "${mem_swap}"
+            --cpus "${cpus}"
+            --user devuser:devuser
+            --workdir "${container_project_path}"
+            "${mounts[@]}"
+            "${env_vars[@]}"
+            --network bridge
+        )
+
+        local run_output
+        if ! run_output=$(docker run "${common_args[@]}" -p "127.0.0.1:${ssh_port}:22" "${image_name}" bash -lc "sudo /usr/sbin/sshd; exec sleep infinity" 2>&1); then
+            if [[ "${run_output}" == *"/forwards/expose returned unexpected status: 500"* ]]; then
+                log_warning "Docker forwarder rejected localhost publish; retrying with host-interface publish on port ${ssh_port}"
+                docker run "${common_args[@]}" -p "${ssh_port}:22" "${image_name}" bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
+                return
+            fi
+            printf '%s\n' "${run_output}" >&2
+            return 1
+        fi
+        printf '%s\n' "${run_output}"
     else
         docker run -d --rm \
             --name "${container_name}" \
@@ -427,6 +449,10 @@ cmd_start() {
             log_warning "authorized_keys not found; --port flag ignored"
         fi
         ssh_port=""
+    fi
+
+    if [[ -n "${ssh_port}" ]] && ! is_valid_port "${ssh_port}"; then
+        die "Invalid SSH port '${ssh_port}'. Use a number between 1 and 65535"
     fi
 
     ensure_volumes
