@@ -14,24 +14,6 @@ tools:
   write: false
 permission:
   webfetch: deny
-  bash:
-    "*": ask
-    "git status*": allow
-    "git diff*": allow
-    "npm run *": allow
-    "npm test*": allow
-    "pnpm *": allow
-    "bun *": allow
-    "yarn *": allow
-    "go test *": allow
-    "go vet *": allow
-    "cargo test*": allow
-    "cargo fmt*": allow
-    "cargo clippy*": allow
-    "python -m pytest*": allow
-    "python -m ruff*": allow
-    "python -m mypy*": allow
-    "make *": ask
 ---
 
 You are a verification runner.

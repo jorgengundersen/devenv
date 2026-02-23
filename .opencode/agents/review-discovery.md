@@ -14,15 +14,6 @@ tools:
   write: false
 permission:
   webfetch: deny
-  bash:
-    "*": ask
-    "git status*": allow
-    "git diff*": allow
-    "git log*": allow
-    "ls*": allow
-    "rg*": allow
-    "python*": deny
-    "node*": deny
 ---
 
 You are a read-only repo discovery agent.

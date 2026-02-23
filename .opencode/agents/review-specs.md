@@ -14,11 +14,6 @@ tools:
   write: false
 permission:
   webfetch: deny
-  bash:
-    "*": ask
-    "git status*": allow
-    "git diff*": allow
-    "rg*": allow
 ---
 
 You are a spec compliance reviewer.

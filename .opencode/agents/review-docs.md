@@ -14,9 +14,6 @@ tools:
   write: false
 permission:
   webfetch: deny
-  bash:
-    "*": ask
-    "rg*": allow
 ---
 
 You are a documentation freshness reviewer.
