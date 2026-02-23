@@ -75,15 +75,15 @@
 
 ## Recommended Next Actions
 
-1. **Fix P0-1**: Add `--no-install-recommends` to `docker/devenv/Dockerfile.devenv:118`
-2. **Fix P0-2 + P2-3**: Add `fzf` to README tools list and architecture tree
-3. **Fix P0-3 + P1-2**: Add `gh-copilot` and `opencode/auth.json` rows to README config mount table
-4. **Fix P1-1**: Add `# syntax=docker/dockerfile:1` to both template Dockerfiles
-5. **Fix P1-3**: Update CONTRIBUTING.md line reference from 46 → 34
-6. **Fix P1-4**: Refactor pipe-to-grep patterns — capture docker output to a variable first, then grep
-7. **Fix P2-1**: Extract shared functions into `shared/bash/utils.sh` and source from both scripts
-8. **Fix P2-2**: Remove commented-out code from template Dockerfiles
-9. **Run shellcheck**: `shellcheck --severity=style bin/devenv bin/build-devenv scripts/install-devenv shared/bash/log.sh` — could not be executed in this environment; should be run to confirm full compliance
+1. [ ] **Fix P0-1**: Add `--no-install-recommends` to `docker/devenv/Dockerfile.devenv:118`
+2. [ ] **Fix P0-2 + P2-3**: Add `fzf` to README tools list and architecture tree
+3. [ ] **Fix P0-3 + P1-2**: Add `gh-copilot` and `opencode/auth.json` rows to README config mount table
+4. [ ] **Fix P1-1**: Add `# syntax=docker/dockerfile:1` to both template Dockerfiles
+5. [ ] **Fix P1-3**: Update CONTRIBUTING.md line reference from 46 → 34
+6. [ ] **Fix P1-4**: Refactor pipe-to-grep patterns — capture docker output to a variable first, then grep
+7. [ ] **Fix P2-1**: Extract shared functions into `shared/bash/utils.sh` and source from both scripts
+8. [ ] **Fix P2-2**: Remove commented-out code from template Dockerfiles
+9. [ ] **Run shellcheck**: `shellcheck --severity=style bin/devenv bin/build-devenv scripts/install-devenv shared/bash/log.sh` — could not be executed in this environment; should be run to confirm full compliance
 
 ## Notes
 
