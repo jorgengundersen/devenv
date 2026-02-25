@@ -65,6 +65,7 @@ USER root
 COPY --from=ghcr.io/jqlang/jq:1.7.1 /jq /usr/local/bin/jq
 RUN chmod +x /usr/local/bin/jq
 
+
 # Stage 3: Dependent tools
 FROM repo-base:latest AS tool_node
 USER root
@@ -158,6 +159,46 @@ RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
     && /opt/node/bin/npm install -g tree-sitter-cli \
     && ln -sf /opt/node/bin/tree-sitter /usr/local/bin/tree-sitter
 
+FROM repo-base:latest AS tool_make
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends make \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM repo-base:latest AS tool_shellcheck
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+RUN SHELLCHECK_URL=$(curl -fsSL https://api.github.com/repos/koalaman/shellcheck/releases/latest | \
+    sed -n 's/.*"browser_download_url": "\(https:[^"]*linux.x86_64.tar.xz\)".*/\1/p' | head -n 1) \
+    && if [ -z "${SHELLCHECK_URL}" ]; then \
+        echo "Unable to resolve shellcheck download URL" >&2; \
+        exit 1; \
+    fi \
+    && SHELLCHECK_ARCHIVE="${SHELLCHECK_URL##*/}" \
+    && SHELLCHECK_DIR="${SHELLCHECK_ARCHIVE%.linux.x86_64.tar.xz}" \
+    && curl -fsSLO "${SHELLCHECK_URL}" \
+    && tar -xJf "${SHELLCHECK_ARCHIVE}" \
+    && mv "${SHELLCHECK_DIR}/shellcheck" /usr/local/bin/shellcheck \
+    && chmod +x /usr/local/bin/shellcheck \
+    && rm -rf "${SHELLCHECK_DIR}" "${SHELLCHECK_ARCHIVE}"
+
+FROM repo-base:latest AS tool_hadolint
+USER root
+RUN HADOLINT_VERSION=$(curl -fsSL https://api.github.com/repos/hadolint/hadolint/releases/latest | \
+    sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p') \
+    && curl -fsSLO "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
+    && mv hadolint-Linux-x86_64 /usr/local/bin/hadolint \
+    && chmod +x /usr/local/bin/hadolint
+
+FROM repo-base:latest AS tool_mdformat
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends pipx \
+    && rm -rf /var/lib/apt/lists/* \
+    && pipx install mdformat \
+    && mv /root/.local/bin/mdformat /usr/local/bin/mdformat \
+    && chmod +x /usr/local/bin/mdformat
+
 # Final stage: Compose all tools
 FROM common_utils AS devenv
 
@@ -187,6 +228,10 @@ COPY --from=tool_yq /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=tool_opencode /usr/local/bin/opencode /usr/local/bin/opencode
 COPY --from=tool_copilot-cli /usr/local/bin/copilot /usr/local/bin/copilot
 COPY --from=tool_tree_sitter /usr/local/bin/tree-sitter /usr/local/bin/tree-sitter
+COPY --from=tool_make /usr/bin/make /usr/local/bin/make
+COPY --from=tool_shellcheck /usr/local/bin/shellcheck /usr/local/bin/shellcheck
+COPY --from=tool_hadolint /usr/local/bin/hadolint /usr/local/bin/hadolint
+COPY --from=tool_mdformat /usr/local/bin/mdformat /usr/local/bin/mdformat
 
 # Ensure node binaries are symlinked to the bundled runtime
 RUN ln -sf /opt/node/bin/node /usr/local/bin/node \

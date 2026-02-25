@@ -36,12 +36,17 @@ devenv/
 │       ├── Dockerfile.fzf
 │       ├── Dockerfile.gh
 │       ├── Dockerfile.go
+│       ├── Dockerfile.hadolint
 │       ├── Dockerfile.jq
+│       ├── Dockerfile.make
+│       ├── Dockerfile.mdformat
 │       ├── Dockerfile.node
 │       ├── Dockerfile.nvim
 │       ├── Dockerfile.opencode
 │       ├── Dockerfile.ripgrep
+│       ├── Dockerfile.shellcheck
 │       ├── Dockerfile.starship
+│       ├── Dockerfile.tree-sitter
 │       ├── Dockerfile.uv
 │       └── Dockerfile.yq
 ├── plans/                       # Planning and research documents
@@ -156,7 +161,7 @@ Tools must be built in dependency order:
 1. **Stage 1 (Base):** `base` — Foundation image with OS and user setup
 2. **Stage 2 (Runtimes & Build Tools):** `cargo`, `go`, `fnm`, `uv`, `jq` — Language runtimes and essential build tools (can be parallel)
 3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
-4. **Stage 4 (Standalone):** `common-utils`, `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf` — Independent tools (can be parallel)
+4. **Stage 4 (Standalone):** `common-utils`, `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf`, `make`, `shellcheck`, `hadolint`, `mdformat` — Independent tools (can be parallel)
 
 Note: `common-utils` is also built as part of `docker/devenv/Dockerfile.devenv` as the `common_utils` intermediate stage. The `--tool common-utils` build target produces a standalone tool image for isolated testing.
 
@@ -369,6 +374,41 @@ curl -sS https://starship.rs/install.sh | sh
 ```bash
 wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq
+```
+
+### shellcheck
+
+```bash
+SHELLCHECK_URL=$(curl -fsSL https://api.github.com/repos/koalaman/shellcheck/releases/latest | \
+    sed -n 's/.*"browser_download_url": "\(https:[^"]*linux.x86_64.tar.xz\)".*/\1/p' | head -n 1)
+SHELLCHECK_ARCHIVE="${SHELLCHECK_URL##*/}"
+SHELLCHECK_DIR="${SHELLCHECK_ARCHIVE%.linux.x86_64.tar.xz}"
+curl -fsSLO "${SHELLCHECK_URL}"
+tar -xJf "${SHELLCHECK_ARCHIVE}"
+mv "${SHELLCHECK_DIR}/shellcheck" /usr/local/bin/shellcheck
+```
+
+### hadolint
+
+```bash
+HADOLINT_VERSION=$(curl -fsSL https://api.github.com/repos/hadolint/hadolint/releases/latest | \
+    sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p')
+curl -fsSLO "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+mv hadolint-Linux-x86_64 /usr/local/bin/hadolint
+```
+
+### mdformat
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends pipx
+pipx install mdformat
+mv /root/.local/bin/mdformat /usr/local/bin/mdformat
+```
+
+### make
+
+```bash
+apt-get update && apt-get install -y --no-install-recommends make
 ```
 
 ## Configuration Mount Points

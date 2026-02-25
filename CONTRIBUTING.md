@@ -115,7 +115,7 @@ Add the new tool name to the `--tool` valid tools list in the `usage()`
 function (`build-devenv`, around line 46):
 
 ```
-Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, jq, <toolname>, node, ...
+Valid tools: cargo, copilot-cli, fnm, fzf, gh, go, <toolname>, jq, node, ...
 ```
 
 Keep the list alphabetically sorted.

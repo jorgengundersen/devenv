@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+
+# Tool: mdformat (Markdown formatter)
+# Installs mdformat via pipx for isolated environment
+
+FROM repo-base:latest AS tool_mdformat
+LABEL tools=true
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends pipx \
+    && rm -rf /var/lib/apt/lists/* \
+    && pipx install mdformat \
+    && mv /root/.local/bin/mdformat /usr/local/bin/mdformat \
+    && chmod +x /usr/local/bin/mdformat \
+    && chown devuser:devuser /usr/local/bin/mdformat
+
+USER devuser

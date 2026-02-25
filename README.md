@@ -117,11 +117,15 @@ devenv/
         ├── Dockerfile.fnm
         ├── Dockerfile.gh
         ├── Dockerfile.go
+        ├── Dockerfile.hadolint
         ├── Dockerfile.jq
+        ├── Dockerfile.make
+        ├── Dockerfile.mdformat
         ├── Dockerfile.node
         ├── Dockerfile.nvim
         ├── Dockerfile.opencode
         ├── Dockerfile.ripgrep
+        ├── Dockerfile.shellcheck
         ├── Dockerfile.starship
         ├── Dockerfile.tree-sitter
         ├── Dockerfile.uv
@@ -136,11 +140,15 @@ devenv/
 - **fnm** - Fast Node Manager
 - **gh** - GitHub CLI
 - **go** - Go programming language
+- **hadolint** - Dockerfile linter
 - **jq** - JSON processor
+- **make** - GNU make
+- **mdformat** - Markdown formatter
 - **node** - Node.js (via fnm)
 - **nvim** - Neovim editor
 - **opencode** - AI coding assistant
 - **ripgrep** - Fast file searcher
+- **shellcheck** - Shell script linter
 - **starship** - Shell prompt
 - **tree-sitter** - Tree-sitter CLI
 - **uv** - Python package manager

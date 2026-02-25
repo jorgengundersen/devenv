@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+
+# Tool: hadolint (Dockerfile linter)
+# Installs latest stable hadolint release
+
+FROM repo-base:latest AS tool_hadolint
+LABEL tools=true
+
+USER root
+
+RUN HADOLINT_VERSION=$(curl -fsSL https://api.github.com/repos/hadolint/hadolint/releases/latest | \
+    sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p') \
+    && curl -fsSLO "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
+    && mv hadolint-Linux-x86_64 /usr/local/bin/hadolint \
+    && chmod +x /usr/local/bin/hadolint \
+    && chown devuser:devuser /usr/local/bin/hadolint
+
+USER devuser
