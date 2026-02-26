@@ -57,6 +57,9 @@ part of a stable API:
 - Prefer CLI contract tests for orchestration-heavy behavior (where the boundary
   is clearer).
 - Only mark primitives as stable if they have clear, reusable contracts.
+- When a primitive is duplicated across scripts (e.g., `resolve_project_path` in
+  both `bin/devenv` and `bin/build-devenv`), each copy must be tested
+  independently until the duplication is resolved by extracting a shared library.
 
 ## Recommended Test Framework
 
@@ -87,12 +90,13 @@ tests/
     devenv_cli.bats
     devenv_primitives.bats
     build_devenv_cli.bats
+    install_devenv_cli.bats
   e2e-human/
     README.md
     devenv_e2e.bats
   helpers/
     test_env.bash
-    assert.bash
+    assert_output.bash
   fixtures/
     bin/
       docker
@@ -107,8 +111,10 @@ run in CI by default.
 
 ### For `bin/devenv`:
 
-- **Primitives**: `resolve_project_path`, `derive_container_name`,
-  `derive_project_label`, `derive_project_image_suffix`.
+- **Primitives**: `resolve_project_path`, `resolve_container_project_path`,
+  `derive_container_name`, `derive_project_label`,
+  `derive_project_image_suffix`, `is_valid_port`, `allocate_port`,
+  `get_image_name`, `build_mounts`, `build_env_vars`.
 - **CLI Contract**:
   - `list` output presence and SSH parsing behavior.
   - `stop` behavior for `--all`, path target, and name target.
@@ -119,6 +125,17 @@ run in CI by default.
 - **Argument parsing**: `--stage`, `--tool`, `--project`, unknown options.
 - **Docker intent**: Correct `docker build` calls (dockerfile path, tags,
   context).
+
+### For `scripts/install-devenv`:
+
+- **Argument parsing**: `install`, `uninstall`, unknown commands.
+- **CLI Contract**: Symlink creation, PATH detection, idempotent installs,
+  uninstall cleanup.
+
+### For `shared/bash/log.sh`:
+
+- **Primitives**: `log_debug`, `log_info`, `log_warning`, `log_error`, `die`.
+- **Behavior**: Log level filtering via `LOG_LEVEL`, `die` exits with code 1.
 
 ## Acceptance Criteria (for Test Implementation)
 
