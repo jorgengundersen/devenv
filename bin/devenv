@@ -184,6 +184,8 @@ build_mounts() {
     local -n mounts_ref="$2"
     local opencode_config_host="${DEVENV_HOME}/shared/config/opencode/opencode.devenv.jsonc"
     local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
+    local opencode_tui_config_host="${DEVENV_HOME}/shared/config/opencode/tui.devenv.jsonc"
+    local opencode_tui_config_container="/home/devuser/.config/opencode/tui.jsonc"
 
     mounts_ref=()
     container_project_path=$(resolve_container_project_path "${project_path}")
@@ -232,6 +234,9 @@ build_mounts() {
     if [[ -f "${opencode_config_host}" ]]; then
         mounts_ref+=("-v" "${opencode_config_host}:${opencode_config_container}:ro")
     fi
+    if [[ -f "${opencode_tui_config_host}" ]]; then
+        mounts_ref+=("-v" "${opencode_tui_config_host}:${opencode_tui_config_container}:ro")
+    fi
     if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
     fi
@@ -247,6 +252,7 @@ build_mounts() {
 build_env_vars() {
     local -n env_ref="$1"
     local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
+    local opencode_tui_config_container="/home/devuser/.config/opencode/tui.jsonc"
 
     env_ref=()
     if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
@@ -255,6 +261,9 @@ build_env_vars() {
     env_ref+=("-e" "TERM=${TERM:-xterm-256color}")
     if [[ -z "${OPENCODE_CONFIG:-}" ]]; then
         env_ref+=("-e" "OPENCODE_CONFIG=${opencode_config_container}")
+    fi
+    if [[ -z "${OPENCODE_TUI_CONFIG:-}" ]]; then
+        env_ref+=("-e" "OPENCODE_TUI_CONFIG=${opencode_tui_config_container}")
     fi
 }
 
