@@ -199,14 +199,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends pipx \
     && mv /root/.local/bin/mdformat /usr/local/bin/mdformat \
     && chmod +x /usr/local/bin/mdformat
 
-FROM repo-base:latest AS tool_beads
-USER root
-RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-FROM repo-base:latest AS tool_dolt
-USER root
-RUN bash -c 'curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash'
-
 # Final stage: Compose all tools
 FROM common_utils AS devenv
 
@@ -240,9 +232,6 @@ COPY --from=tool_make /usr/bin/make /usr/local/bin/make
 COPY --from=tool_shellcheck /usr/local/bin/shellcheck /usr/local/bin/shellcheck
 COPY --from=tool_hadolint /usr/local/bin/hadolint /usr/local/bin/hadolint
 COPY --from=tool_mdformat /usr/local/bin/mdformat /usr/local/bin/mdformat
-COPY --from=tool_beads /usr/local/bin/bd /usr/local/bin/bd
-COPY --from=tool_beads /usr/local/bin/beads /usr/local/bin/beads
-COPY --from=tool_dolt /usr/local/bin/dolt /usr/local/bin/dolt
 
 # Ensure node binaries are symlinked to the bundled runtime
 RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
