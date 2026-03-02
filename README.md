@@ -111,6 +111,7 @@ devenv/
 ├── README.md                    # This file
 └── shared/
     └── tools/                   # Tool-specific Dockerfiles
+        ├── Dockerfile.beads
         ├── Dockerfile.cargo
         ├── Dockerfile.common-utils
         ├── Dockerfile.copilot-cli
@@ -134,6 +135,7 @@ devenv/
 
 ## Available Tools
 
+- **beads** - Local dev environment manager (bd)
 - **cargo** - Rust toolchain and package manager
 - **common-utils** - Baseline CLI utilities (tree/less/man/file/network tools)
 - **copilot-cli** - GitHub Copilot CLI

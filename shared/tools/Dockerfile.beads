@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+
+# Tool: beads (bd)
+
+FROM repo-base:latest AS tool_beads
+LABEL tools=true
+
+USER root
+
+RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+USER devuser

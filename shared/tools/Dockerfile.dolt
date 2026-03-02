@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+
+# Tool: dolt (Dolt database)
+
+FROM repo-base:latest AS tool_dolt
+LABEL tools=true
+
+USER root
+
+RUN bash -c 'curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash'
+
+USER devuser
