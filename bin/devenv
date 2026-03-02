@@ -358,10 +358,10 @@ start_container() {
         )
 
         local run_output
-        if ! run_output=$(docker run "${common_args[@]}" -p "127.0.0.1:${ssh_port}:22" "${image_name}" bash -lc "sudo /usr/sbin/sshd; exec sleep infinity" 2>&1); then
+        if ! run_output=$(docker run "${common_args[@]}" -p "127.0.0.1:${ssh_port}:22" "${image_name}" bash -lc "exec tini -- /usr/local/share/devenv/entrypoint.sh" 2>&1); then
             if [[ "${run_output}" == *"/forwards/expose returned unexpected status: 500"* ]]; then
                 log_warning "Docker forwarder rejected localhost publish; retrying with host-interface publish on port ${ssh_port}"
-                docker run "${common_args[@]}" -p "${ssh_port}:22" "${image_name}" bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"
+                docker run "${common_args[@]}" -p "${ssh_port}:22" "${image_name}" bash -lc "exec tini -- /usr/local/share/devenv/entrypoint.sh"
                 return
             fi
             printf '%s\n' "${run_output}" >&2
@@ -382,7 +382,7 @@ start_container() {
             "${env_vars[@]}" \
             --network bridge \
             "${image_name}" \
-            bash -lc "exec sleep infinity"
+            bash -lc "exec tini -- /usr/local/share/devenv/entrypoint.sh"
     fi
 }
 

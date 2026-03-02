@@ -276,6 +276,11 @@ RUN mkdir -p /home/devuser/.cargo \
 RUN chown -R devuser:devuser /usr/local/bin \
     && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 /opt/node 2>/dev/null || true
 
+# Copy entrypoint and logging library into the image
+COPY shared/bash/log.sh /usr/local/share/devenv/log.sh
+COPY shared/scripts/entrypoint.sh /usr/local/share/devenv/entrypoint.sh
+RUN chmod +x /usr/local/share/devenv/entrypoint.sh
+
 # Set up PATH for all tools
 ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:/usr/local/bin:${PATH}"
 ENV RUSTUP_HOME="/usr/local/rustup"

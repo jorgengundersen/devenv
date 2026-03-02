@@ -53,3 +53,7 @@
 # - linear.api-key
 # - github.org
 # - github.repo
+
+# Dolt server lifecycle: managed by container entrypoint, not by bd
+dolt:
+  auto-start: false
