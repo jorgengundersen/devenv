@@ -34,10 +34,10 @@ Container Start
     │
     ├─ 2. Start sshd
     │
-    ├─ 3. Start dolt sql-server (background, supervised)
+    ├─ 3. Start dolt sql-server (background)
     │     ├─ Bind: 127.0.0.1:<port>
-    │     ├─ Data dir: .beads/dolt/
-    │     └─ Write PID to .beads/dolt-server.pid
+    │     ├─ Data dir: <repo_root>/.beads/dolt/
+    │     └─ Write PID/log under $XDG_STATE_HOME (not in repo)
     │
     ├─ 4. Wait for server ready (health check)
     │
@@ -71,12 +71,17 @@ dolt:
 
 With this setting, `bd` assumes the server is already running and connects to it. If the server is down, `bd` returns an error rather than attempting to start one.
 
+**Bootstrapping:** in a brand new repo (no `.beads/` yet), `bd init` must run once to create the database. Until the container-managed server is in place, avoid running `bd` concurrently across shells.
+
+After `.beads/` exists, restart the container so the entrypoint can start the shared server. Then set `dolt.auto-start: false` (or automate this as part of a post-init hook).
+
 ### Entrypoint Script
 
 A shell script replaces the inline `bash -lc "sudo /usr/sbin/sshd; exec sleep infinity"` command. The script:
 
 1. Starts `sshd` (existing behavior).
-2. Locates the project's `.beads/dolt/` directory and starts `dolt sql-server` if it exists.
+2. Resolves the repository root (do not assume `$PWD` is repo root).
+3. Locates `<repo_root>/.beads/dolt/` and starts `dolt sql-server` if it exists.
 3. Waits for the server to accept connections (TCP check on the configured port).
 4. Execs into `sleep infinity` to keep the container alive.
 
@@ -96,17 +101,30 @@ The script is copied into the image at build time to `/usr/local/share/devenv/en
 
 ### Server Discovery
 
-The entrypoint must discover which project directory contains a `.beads/dolt/` database. Since the container's working directory is set to the project path via `--workdir`, the entrypoint uses `$PWD` to locate the beads directory:
+The entrypoint must discover which project directory contains a `.beads/dolt/` database.
+
+Do not assume the container starts in the repository root (monorepos and nested `--workdir` values are common). Determine a `repo_root` using one of these approaches:
+
+1. If available, use `git rev-parse --show-toplevel`.
+2. Otherwise, walk upward from `$PWD` until you find `.git/` and treat that directory as the root.
+
+Then use:
 
 ```
-$PWD/.beads/dolt/    →  start server for this project
+<repo_root>/.beads/dolt/    →  start server for this project
 ```
 
-If no `.beads/dolt/` exists at container start, the server is not started. This handles fresh projects that haven't run `bd init` yet. When `bd init` is later run, beads' own auto-start will handle the first launch. Subsequent shells will then find the server already running.
+If no `.beads/dolt/` exists at container start, the server is not started. This handles fresh projects that haven't run `bd init` yet.
+
+If `.beads/dolt/` is created later while the container is already running, the server is not started automatically (by design). In that case, restart the container (or provide a manual start command as a future enhancement).
 
 ### Server Port
 
-The server port is read from `.beads/dolt/config.yaml` if it exists, or defaults to Dolt's standard port. The entrypoint does not hardcode a port number. It reads the port from the existing beads configuration to stay consistent with what `bd` expects.
+The server port is read from Beads' project configuration (`<repo_root>/.beads/config.yaml`) so the container-managed server uses the same connection parameters as `bd`.
+
+If the port is not configured, default to Dolt's standard port.
+
+If the configured port is already in use, the entrypoint should attempt a lightweight query to determine whether a Dolt server is already listening on that port. If it responds, treat that as success and do not start a second server.
 
 ### Health Check
 
@@ -131,11 +149,13 @@ The entrypoint must not prevent the container from starting if the Dolt server f
 | Scenario | Behavior |
 |----------|----------|
 | No `.beads/dolt/` directory | Skip server start, no warning |
+| Port already in use, Dolt responds | Treat as already running, no warning |
+| Port already in use, not Dolt | Log warning, skip server start |
 | Server fails to start | Log warning to stderr, continue |
 | Server crashes after start | Not restarted (intentional; `bd` commands will error) |
 | `dolt` binary not found | Log warning to stderr, continue |
 
-Server crashes are not automatically recovered. If the server dies during the session, agents will see connection errors. Manual restart is required via `bd dolt start` or by restarting the container. Automatic restart via a process supervisor is a future enhancement if crash frequency warrants it.
+Server crashes are not automatically recovered. If the server dies during the session, agents will see connection errors. Manual restart is required (restart the container). Automatic restart via a process supervisor is a future enhancement if crash frequency warrants it.
 
 ## Implementation
 
@@ -190,12 +210,15 @@ This can be set manually or automated as part of a post-init hook.
 Responsibilities:
 
 1. Start sshd via `sudo /usr/sbin/sshd`.
-2. Detect `.beads/dolt/` in `$PWD`.
-3. Read server port from `.beads/dolt/config.yaml` (or `.beads/dolt-server.port` if it exists).
-4. Start `dolt sql-server` in background with output redirected to `.beads/dolt-server.log`.
-5. Write PID to `.beads/dolt-server.pid`.
+2. Resolve `repo_root` robustly.
+3. Detect `<repo_root>/.beads/dolt/`.
+4. Read server port from `<repo_root>/.beads/config.yaml`.
+5. Start `dolt sql-server` in background.
+6. Write PID/log under a state directory (avoid creating repo noise).
 6. Health-check the server (TCP, up to 30 seconds).
 7. `exec sleep infinity`.
+
+**State directory:** prefer `$XDG_STATE_HOME/devenv/` (fallback: `$HOME/.local/state/devenv/`). Use a per-project subdirectory (e.g. derived from repo root basename) for `dolt-server.pid` and `dolt-server.log`.
 
 The script must follow the coding standard: `set -euo pipefail`, `main()` function structure, input validation.
 
