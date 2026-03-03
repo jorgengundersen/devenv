@@ -41,18 +41,42 @@ resolve_repo_root() {
     return 1
 }
 
-# Read the Dolt listener port from config; default to 3306.
+# Read the Dolt listener port.
+# Resolution order:
+#   1. Dolt server config: <repo_root>/.beads/dolt/config.yaml  (listener.port)
+#   2. Beads project config: <repo_root>/.beads/config.yaml      (dolt.port)
+#   3. Default: 3306
+# The dolt server config is authoritative because bd uses it to start/connect.
 read_dolt_port() {
     local repo_root="$1"
-    local config="${repo_root}/.beads/dolt/config.yaml"
     local port
-    if [[ -f "${config}" ]] && command -v yq >/dev/null 2>&1; then
-        port=$(yq '.listener.port // ""' "${config}" 2>/dev/null)
+
+    if ! command -v yq >/dev/null 2>&1; then
+        printf '%s' "${DEFAULT_DOLT_PORT}"
+        return 0
+    fi
+
+    # 1. Dolt server config (authoritative — bd connects to this port)
+    local dolt_config="${repo_root}/.beads/dolt/config.yaml"
+    if [[ -f "${dolt_config}" ]]; then
+        port=$(yq '.listener.port // ""' "${dolt_config}" 2>/dev/null)
         if [[ -n "${port}" && "${port}" != "null" ]]; then
             printf '%s' "${port}"
             return 0
         fi
     fi
+
+    # 2. Beads project config (fallback)
+    local beads_config="${repo_root}/.beads/config.yaml"
+    if [[ -f "${beads_config}" ]]; then
+        port=$(yq '(.dolt.listener.port // .dolt.port) // ""' "${beads_config}" 2>/dev/null)
+        if [[ -n "${port}" && "${port}" != "null" ]]; then
+            printf '%s' "${port}"
+            return 0
+        fi
+    fi
+
+    # 3. Default
     printf '%s' "${DEFAULT_DOLT_PORT}"
 }
 
@@ -75,13 +99,15 @@ ensure_state_dir() {
 start_dolt_server() {
     local dolt_dir="$1"
     local state_dir="$2"
-    local config="${dolt_dir}/config.yaml"
+    local port="$3"
     local log_file="${state_dir}/dolt-server.log"
     local pid_file="${state_dir}/dolt-server.pid"
-    local -a server_args=("sql-server")
-    if [[ -f "${config}" ]]; then
-        server_args+=("--config" "${config}")
-    fi
+    local -a server_args=(
+        "sql-server"
+        "--data-dir" "${dolt_dir}"
+        "--host" "127.0.0.1"
+        "--port" "${port}"
+    )
     dolt "${server_args[@]}" >> "${log_file}" 2>&1 &
     local pid=$!
     printf '%s' "${pid}" > "${pid_file}"
@@ -126,6 +152,15 @@ main() {
         exec sleep infinity
     fi
 
+    local config="${repo_root}/.beads/config.yaml"
+    if [[ -f "${config}" ]] && command -v yq >/dev/null 2>&1; then
+        local auto_start
+        auto_start=$(yq '.dolt["auto-start"] // ""' "${config}" 2>/dev/null)
+        if [[ -n "${auto_start}" && "${auto_start}" != "false" && "${auto_start}" != "null" ]]; then
+            log_warning "beads config dolt.auto-start is not false; bd may try to start its own server"
+        fi
+    fi
+
     local port
     port=$(read_dolt_port "${repo_root}")
 
@@ -138,7 +173,7 @@ main() {
     local state_dir
     state_dir=$(ensure_state_dir "${project_name}")
 
-    start_dolt_server "${dolt_dir}" "${state_dir}"
+    start_dolt_server "${dolt_dir}" "${state_dir}" "${port}"
 
     wait_for_dolt "${port}" || true
 

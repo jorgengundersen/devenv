@@ -120,9 +120,13 @@ If `.beads/dolt/` is created later while the container is already running, the s
 
 ### Server Port
 
-The server port is read from Beads' project configuration (`<repo_root>/.beads/config.yaml`) so the container-managed server uses the same connection parameters as `bd`.
+The server port is resolved using the following precedence:
 
-If the port is not configured, default to Dolt's standard port.
+1. **Dolt server config** (`<repo_root>/.beads/dolt/config.yaml`, key `listener.port`) — authoritative, because this is the config that `bd` uses to start/connect to the Dolt server.
+2. **Beads project config** (`<repo_root>/.beads/config.yaml`, key `dolt.port` or `dolt.listener.port`) — fallback for cases where the dolt server config does not exist yet.
+3. **Default** — Dolt's standard port (3306).
+
+The dolt server config takes priority because `bd` writes this file when it initializes the database, and the entrypoint must start the server on the same port that `bd` expects. If the entrypoint reads a different config file, the entrypoint and `bd` can start separate servers on different ports against the same data directory, causing lock contention and database corruption.
 
 If the configured port is already in use, the entrypoint should attempt a lightweight query to determine whether a Dolt server is already listening on that port. If it responds, treat that as success and do not start a second server.
 

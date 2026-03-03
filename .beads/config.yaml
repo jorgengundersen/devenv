@@ -55,5 +55,8 @@
 # - github.repo
 
 # Dolt server lifecycle: managed by container entrypoint, not by bd
+# The authoritative port is in .beads/dolt/config.yaml (listener.port).
+# This fallback is read by the entrypoint if the dolt server config is missing.
 dolt:
   auto-start: false
+  port: 13784
