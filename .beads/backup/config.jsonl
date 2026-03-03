@@ -7,6 +7,5 @@
 {"key":"compact_tier2_days","value":"90"}
 {"key":"compact_tier2_dep_levels","value":"5"}
 {"key":"compaction_enabled","value":"false"}
-{"key":"hooks.version","value":"0.57.0"}
 {"key":"issue_prefix","value":"devenv"}
 {"key":"schema_version","value":"6"}
