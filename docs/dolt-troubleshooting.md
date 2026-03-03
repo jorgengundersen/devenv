@@ -68,11 +68,21 @@ When the new container starts, `bd` sees these stale files and mis-detects
 server state, attempting its own `dolt sql-server` start which conflicts with
 the entrypoint-managed server.
 
-**Automatic fix:** The entrypoint (`shared/scripts/entrypoint.sh`) now
-automatically cleans up all stale state files on every container boot via the
-`clean_stale_state()` function. This runs before checking if dolt is already
-running or starting a new server. If you are still seeing this error, the
-entrypoint image may need to be rebuilt.
+**Automatic fix:** The entrypoint (`shared/scripts/entrypoint.sh`) applies
+three layers of protection on every container boot:
+
+1. `clean_stale_state()` — removes ALL `sql-server.info`, PID, lock, port,
+   and activity files **unconditionally** (no PID-liveness check, since PIDs
+   can be reused across container restarts).
+2. `kill_stale_dolt_processes()` — kills ALL `dolt sql-server` processes in
+   two passes: first those matching the data directory, then any remaining
+   dolt server processes regardless of flags.  This catches servers started
+   by `bd` on mismatched ports.
+3. Final `rm -f` of `sql-server.info` files right before starting the new
+   server, to clear any files created by a killed process during shutdown.
+
+If you are still seeing this error after these fixes, the entrypoint image
+may need to be rebuilt.
 
 **Manual fix (if the entrypoint fix is not yet deployed):**
 

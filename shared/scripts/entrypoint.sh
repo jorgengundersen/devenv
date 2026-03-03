@@ -113,6 +113,12 @@ is_dolt_running() {
 # dolt.  Leaving them causes bd to mis-detect server state, attempt its own
 # dolt sql-server start, and hit "database is locked" errors.
 #
+# IMPORTANT: We remove sql-server.info files UNCONDITIONALLY.  The PID check
+# (kill -0) is unreliable across container restarts — PIDs can be reused by
+# unrelated processes, causing kill -0 to succeed for a stale PID.  Since the
+# entrypoint runs exactly once at container boot, before any dolt process is
+# started by us, any existing sql-server.info is by definition stale.
+#
 # This function is idempotent and safe to call on every container boot.
 clean_stale_state() {
     local repo_root="$1"
@@ -120,33 +126,30 @@ clean_stale_state() {
     local dolt_dir="${beads_dir}/dolt"
 
     # --- Dolt's own server info files ---
+    # Remove unconditionally.  At entrypoint boot time, we have not started
+    # dolt yet, so any sql-server.info is from a previous container session
+    # (or a previous entrypoint run).  The old PID-liveness check was unsafe
+    # because PIDs can be reused across container restarts.
     local info_file
     for info_file in \
         "${dolt_dir}/.dolt/sql-server.info" \
         "${dolt_dir}/devenv/.dolt/sql-server.info"; do
         if [[ -f "${info_file}" ]]; then
-            local old_pid
-            old_pid=$(cut -d: -f1 < "${info_file}" 2>/dev/null) || true
-            if [[ -n "${old_pid}" ]] && ! kill -0 "${old_pid}" 2>/dev/null; then
-                rm -f "${info_file}"
-                log_info "Removed stale dolt server info: ${info_file} (dead PID ${old_pid})"
-            fi
+            rm -f "${info_file}"
+            log_info "Removed stale dolt server info: ${info_file}"
         fi
     done
 
     # --- bd server management files ---
-    # These are all in .beads/ and reference PIDs or state from the old container.
+    # Remove unconditionally for the same reason: these are never valid across
+    # container restarts regardless of whether the PID happens to be alive.
     local pid_file
     for pid_file in \
         "${beads_dir}/dolt-server.pid" \
         "${beads_dir}/dolt-monitor.pid"; do
         if [[ -f "${pid_file}" ]]; then
-            local old_pid
-            old_pid=$(cat "${pid_file}" 2>/dev/null) || true
-            if [[ -n "${old_pid}" ]] && ! kill -0 "${old_pid}" 2>/dev/null; then
-                rm -f "${pid_file}"
-                log_info "Removed stale PID file: ${pid_file} (dead PID ${old_pid})"
-            fi
+            rm -f "${pid_file}"
+            log_info "Removed stale PID file: ${pid_file}"
         fi
     done
 
@@ -172,33 +175,63 @@ clean_stale_state() {
     fi
 }
 
-# Kill any dolt sql-server processes that are using our data directory
-# but are NOT the server we are about to start.  This handles the case
-# where a previous entrypoint invocation within the same container left
-# a dolt process running (e.g. container exec re-ran the entrypoint).
+# Kill a single dolt process by PID, with graceful then forced shutdown.
+_kill_dolt_pid() {
+    local pid="$1"
+    local reason="$2"
+    if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+    fi
+    log_info "Killing dolt sql-server (PID ${pid}): ${reason}"
+    kill "${pid}" 2>/dev/null || true
+    # Wait up to 5 seconds for graceful shutdown
+    local _wait
+    for _wait in $(seq 1 5); do
+        kill -0 "${pid}" 2>/dev/null || return 0
+        sleep 1
+    done
+    # Force kill if still alive
+    if kill -0 "${pid}" 2>/dev/null; then
+        log_warning "Force-killing dolt sql-server (PID ${pid})"
+        kill -9 "${pid}" 2>/dev/null || true
+        sleep 1
+    fi
+}
+
+# Kill any dolt sql-server processes that would conflict with the server
+# we are about to start.  This covers two scenarios:
+#
+#   1. A previous entrypoint invocation within the same container left a dolt
+#      process running (e.g. container exec re-ran the entrypoint).
+#
+#   2. A dolt process is running on a DIFFERENT port from a previous session
+#      where the config specified a different port.  This is critical: if we
+#      only look for processes matching our data-dir, we miss dolt processes
+#      started by bd on a mismatched port, which then lock the database.
+#
+# Strategy: kill ALL dolt sql-server processes.  At this point in the
+# entrypoint we have already cleaned stale state and confirmed no valid
+# server is running on our target port (is_dolt_running returned false).
+# Any surviving dolt process is by definition orphaned or conflicting.
 kill_stale_dolt_processes() {
     local dolt_dir="$1"
     local pid
-    # Find dolt sql-server processes whose command line references our data dir
+
+    # First pass: processes referencing our data directory (most targeted)
     while IFS= read -r pid; do
         [[ -z "${pid}" ]] && continue
-        if kill -0 "${pid}" 2>/dev/null; then
-            log_info "Killing orphaned dolt sql-server (PID ${pid}) on data-dir ${dolt_dir}"
-            kill "${pid}" 2>/dev/null || true
-            # Give it a moment to release the lock
-            local _wait
-            for _wait in $(seq 1 5); do
-                kill -0 "${pid}" 2>/dev/null || break
-                sleep 1
-            done
-            # Force kill if still alive
-            if kill -0 "${pid}" 2>/dev/null; then
-                log_warning "Force-killing dolt sql-server (PID ${pid})"
-                kill -9 "${pid}" 2>/dev/null || true
-                sleep 1
-            fi
-        fi
+        _kill_dolt_pid "${pid}" "orphaned on data-dir ${dolt_dir}"
     done < <(pgrep -f "dolt sql-server.*--data-dir ${dolt_dir}" 2>/dev/null || true)
+
+    # Second pass: ANY remaining dolt sql-server process.
+    # This catches processes started with a relative data-dir path, different
+    # path representation, or by bd with its own flags.  Since the entrypoint
+    # is the sole authority for the dolt lifecycle, all other dolt servers
+    # inside this container are illegitimate at boot time.
+    while IFS= read -r pid; do
+        [[ -z "${pid}" ]] && continue
+        _kill_dolt_pid "${pid}" "unexpected dolt sql-server process"
+    done < <(pgrep -f "dolt sql-server" 2>/dev/null || true)
 }
 
 # Create the state directory for PID/log files.
@@ -295,8 +328,16 @@ main() {
     state_dir=$(ensure_state_dir "${project_name}")
 
     # Kill any orphaned dolt processes left from a previous entrypoint run
-    # within the same container (e.g. if the entrypoint is re-invoked).
+    # within the same container (e.g. if the entrypoint is re-invoked), or
+    # from bd having started its own server despite auto-start: false.
     kill_stale_dolt_processes "${dolt_dir}"
+
+    # Final safety: remove sql-server.info files one more time.  Between
+    # clean_stale_state() and now, a killed dolt process may have left a
+    # fresh info file, or bd may have created one.  We must clear it or
+    # dolt sql-server will refuse to start with "database is locked".
+    rm -f "${dolt_dir}/.dolt/sql-server.info" \
+          "${dolt_dir}/devenv/.dolt/sql-server.info" 2>/dev/null || true
 
     start_dolt_server "${dolt_dir}" "${state_dir}" "${port}"
 
