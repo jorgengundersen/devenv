@@ -57,13 +57,24 @@ database "dolt" is locked by another dolt process
 ```
 
 **Cause:** Two `dolt sql-server` processes are running against the same data
-directory (`.beads/dolt/`). This typically happens when:
+directory (`.beads/dolt/`). This typically happens when stale state files from
+a previous container session persist on the volume-mounted `.beads/` directory:
 
-- The entrypoint starts dolt on one port (e.g. 3306) and `bd` starts its own
-  on a different port (e.g. 13784) because the port configs disagree.
-- `dolt.auto-start` is not set to `false` in `.beads/config.yaml`.
+- `.beads/dolt/.dolt/sql-server.info` — Dolt's own server lock (PID:PORT:UUID)
+- `.beads/dolt-server.pid`, `.beads/dolt-server.lock`, `.beads/dolt-monitor.pid`
+  — bd's server management files
 
-**Fix:**
+When the new container starts, `bd` sees these stale files and mis-detects
+server state, attempting its own `dolt sql-server` start which conflicts with
+the entrypoint-managed server.
+
+**Automatic fix:** The entrypoint (`shared/scripts/entrypoint.sh`) now
+automatically cleans up all stale state files on every container boot via the
+`clean_stale_state()` function. This runs before checking if dolt is already
+running or starting a new server. If you are still seeing this error, the
+entrypoint image may need to be rebuilt.
+
+**Manual fix (if the entrypoint fix is not yet deployed):**
 
 ```bash
 # 1. Identify all dolt processes
@@ -76,17 +87,24 @@ ss -tlnp | grep dolt
 bd dolt status          # Shows the port bd expects
 kill <wrong_pid>
 
-# 4. Verify configs agree
+# 4. Remove stale state files
+rm -f .beads/dolt/.dolt/sql-server.info
+rm -f .beads/dolt/devenv/.dolt/sql-server.info
+rm -f .beads/dolt-server.pid .beads/dolt-server.lock
+rm -f .beads/dolt-server.port .beads/dolt-server.activity
+rm -f .beads/dolt-monitor.pid
+
+# 5. Verify configs agree
 yq '.listener.port' .beads/dolt/config.yaml    # Authoritative port
 yq '.dolt.port' .beads/config.yaml              # Should match or be absent
 
-# 5. Ensure auto-start is disabled
+# 6. Ensure auto-start is disabled
 grep "auto-start" .beads/config.yaml            # Must show "false"
 ```
 
 **Permanent fix:** Ensure `.beads/dolt/config.yaml` has the correct
 `listener.port` and that `.beads/config.yaml` has `dolt.auto-start: false`.
-Restart the container.
+Rebuild the devenv image to pick up the entrypoint fix.
 
 ### bd commands hang or return connection errors
 

@@ -81,9 +81,124 @@ read_dolt_port() {
 }
 
 # Check if a Dolt server is already responding on the given port.
+# Uses DOLT_CLI_PASSWORD to avoid interactive password prompt.
 is_dolt_running() {
     local port="$1"
-    dolt sql -q "SELECT 1" --host 127.0.0.1 --port "${port}" --user root >/dev/null 2>&1
+    DOLT_CLI_PASSWORD="" dolt --host 127.0.0.1 --port "${port}" --user root --no-tls \
+        sql -q "SELECT 1" >/dev/null 2>&1
+}
+
+# Remove stale state files from a previous container session.
+#
+# When a container is destroyed without a clean shutdown, several files persist
+# on the volume-mounted .beads/ directory:
+#
+#   .beads/dolt/.dolt/sql-server.info   — Dolt's own server lock (PID:PORT:UUID).
+#                                         A new dolt sql-server refuses to start
+#                                         if this file exists AND the PID is alive.
+#                                         On a fresh container the PID is always
+#                                         stale, but the file's mere presence can
+#                                         confuse bd's server-detection heuristics.
+#
+#   .beads/dolt/devenv/.dolt/sql-server.info — Same, for the per-database copy.
+#
+#   .beads/dolt-server.pid              — PID recorded by bd's server manager.
+#   .beads/dolt-server.port             — Port recorded by bd's server manager.
+#   .beads/dolt-server.lock             — Lock file used by bd's server manager.
+#   .beads/dolt-server.activity         — Activity tracker for bd auto-shutdown.
+#   .beads/dolt-monitor.pid             — PID of bd's server health monitor.
+#
+# If any of these reference a PID that no longer exists (which is guaranteed
+# on a fresh container), they are stale and must be removed before we start
+# dolt.  Leaving them causes bd to mis-detect server state, attempt its own
+# dolt sql-server start, and hit "database is locked" errors.
+#
+# This function is idempotent and safe to call on every container boot.
+clean_stale_state() {
+    local repo_root="$1"
+    local beads_dir="${repo_root}/.beads"
+    local dolt_dir="${beads_dir}/dolt"
+
+    # --- Dolt's own server info files ---
+    local info_file
+    for info_file in \
+        "${dolt_dir}/.dolt/sql-server.info" \
+        "${dolt_dir}/devenv/.dolt/sql-server.info"; do
+        if [[ -f "${info_file}" ]]; then
+            local old_pid
+            old_pid=$(cut -d: -f1 < "${info_file}" 2>/dev/null) || true
+            if [[ -n "${old_pid}" ]] && ! kill -0 "${old_pid}" 2>/dev/null; then
+                rm -f "${info_file}"
+                log_info "Removed stale dolt server info: ${info_file} (dead PID ${old_pid})"
+            fi
+        fi
+    done
+
+    # --- bd server management files ---
+    # These are all in .beads/ and reference PIDs or state from the old container.
+    local pid_file
+    for pid_file in \
+        "${beads_dir}/dolt-server.pid" \
+        "${beads_dir}/dolt-monitor.pid"; do
+        if [[ -f "${pid_file}" ]]; then
+            local old_pid
+            old_pid=$(cat "${pid_file}" 2>/dev/null) || true
+            if [[ -n "${old_pid}" ]] && ! kill -0 "${old_pid}" 2>/dev/null; then
+                rm -f "${pid_file}"
+                log_info "Removed stale PID file: ${pid_file} (dead PID ${old_pid})"
+            fi
+        fi
+    done
+
+    # Remove lock, port, and activity files unconditionally on boot.
+    # These are ephemeral runtime state — never valid across container restarts.
+    local stale_file
+    for stale_file in \
+        "${beads_dir}/dolt-server.lock" \
+        "${beads_dir}/dolt-server.port" \
+        "${beads_dir}/dolt-server.activity"; do
+        if [[ -f "${stale_file}" ]]; then
+            rm -f "${stale_file}"
+            log_info "Removed stale state file: ${stale_file}"
+        fi
+    done
+
+    # Truncate the bd server log to prevent unbounded growth across restarts.
+    # The entrypoint server log (in state_dir) is already container-scoped,
+    # but bd's log in .beads/ persists on the volume.
+    if [[ -f "${beads_dir}/dolt-server.log" ]]; then
+        : > "${beads_dir}/dolt-server.log"
+        log_debug "Truncated stale bd server log"
+    fi
+}
+
+# Kill any dolt sql-server processes that are using our data directory
+# but are NOT the server we are about to start.  This handles the case
+# where a previous entrypoint invocation within the same container left
+# a dolt process running (e.g. container exec re-ran the entrypoint).
+kill_stale_dolt_processes() {
+    local dolt_dir="$1"
+    local pid
+    # Find dolt sql-server processes whose command line references our data dir
+    while IFS= read -r pid; do
+        [[ -z "${pid}" ]] && continue
+        if kill -0 "${pid}" 2>/dev/null; then
+            log_info "Killing orphaned dolt sql-server (PID ${pid}) on data-dir ${dolt_dir}"
+            kill "${pid}" 2>/dev/null || true
+            # Give it a moment to release the lock
+            local _wait
+            for _wait in $(seq 1 5); do
+                kill -0 "${pid}" 2>/dev/null || break
+                sleep 1
+            done
+            # Force kill if still alive
+            if kill -0 "${pid}" 2>/dev/null; then
+                log_warning "Force-killing dolt sql-server (PID ${pid})"
+                kill -9 "${pid}" 2>/dev/null || true
+                sleep 1
+            fi
+        fi
+    done < <(pgrep -f "dolt sql-server.*--data-dir ${dolt_dir}" 2>/dev/null || true)
 }
 
 # Create the state directory for PID/log files.
@@ -164,6 +279,12 @@ main() {
     local port
     port=$(read_dolt_port "${repo_root}")
 
+    # Clean up stale state from previous container sessions BEFORE checking
+    # if dolt is already running or attempting to start it.  This prevents
+    # bd from seeing leftover PID/lock files and trying to start its own
+    # conflicting dolt server.
+    clean_stale_state "${repo_root}"
+
     if is_dolt_running "${port}"; then
         log_debug "dolt sql-server already running on port ${port}"
         exec sleep infinity
@@ -172,6 +293,10 @@ main() {
     local project_name="${repo_root##*/}"
     local state_dir
     state_dir=$(ensure_state_dir "${project_name}")
+
+    # Kill any orphaned dolt processes left from a previous entrypoint run
+    # within the same container (e.g. if the entrypoint is re-invoked).
+    kill_stale_dolt_processes "${dolt_dir}"
 
     start_dolt_server "${dolt_dir}" "${state_dir}" "${port}"
 
