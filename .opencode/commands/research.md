@@ -20,9 +20,9 @@ Spec file: $ARGUMENTS
 
 ## Output
 
-Derive the output path from the spec filename: strip the directory prefix and `.md` extension, then write to `plans/current/<name>/research.md`.
+Derive the output path from the spec filename: strip the directory prefix and `.md` extension, then write to `research/<name>/research.md`.
 
-Example: `specs/multi-environment-architecture.md` → `plans/current/multi-environment-architecture/research.md`
+Example: `specs/multi-environment-architecture.md` → `research/multi-environment-architecture/research.md`
 
 Create the directory if it does not exist.
 
