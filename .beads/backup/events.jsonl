@@ -4,3 +4,5 @@
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T08:51:42Z","event_type":"closed","id":4,"issue_id":"devenv-jvb","new_value":"Test issue, cleaning up","old_value":""}
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T08:56:59Z","event_type":"created","id":5,"issue_id":"devenv-1ww","new_value":"","old_value":""}
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T08:57:03Z","event_type":"closed","id":6,"issue_id":"devenv-1ww","new_value":"Test complete","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T09:14:10Z","event_type":"created","id":7,"issue_id":"devenv-poj","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T09:14:13Z","event_type":"closed","id":8,"issue_id":"devenv-poj","new_value":"Fixed in commit a1cab3b: hardened entrypoint.sh with unconditional state cleanup, two-pass dolt process kill, and final sql-server.info removal before server start","old_value":""}
