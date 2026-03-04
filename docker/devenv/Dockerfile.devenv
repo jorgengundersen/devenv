@@ -30,8 +30,6 @@ FROM tools-cargo:latest AS tool_cargo
 
 FROM tools-go:latest AS tool_go
 
-FROM tools-fnm:latest AS tool_fnm
-
 FROM tools-uv:latest AS tool_uv
 
 FROM tools-fzf:latest AS tool_fzf
@@ -82,7 +80,6 @@ USER root
 COPY --from=tool_cargo /usr/local/cargo /usr/local/cargo
 COPY --from=tool_cargo /usr/local/rustup /usr/local/rustup
 COPY --from=tool_go /usr/local/go /usr/local/go
-COPY --from=tool_fnm /usr/local/bin/fnm /usr/local/bin/fnm
 COPY --from=tool_uv /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=tool_uv /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=tool_fzf /root/.fzf/bin/fzf /usr/local/bin/fzf
