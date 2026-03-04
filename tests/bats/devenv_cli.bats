@@ -205,6 +205,91 @@ load '../helpers/assert_output.bash'
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Resource override env vars (DEVENV_MEMORY / DEVENV_MEMORY_SWAP / DEVENV_CPUS)
+# ---------------------------------------------------------------------------
+
+@test "DEVENV_MEMORY=4g: docker run receives --memory 4g" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    DEVENV_MEMORY="4g" \
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv "${project_dir}"
+
+    assert_exit_code 0
+    grep -q -- "--memory 4g" "${docker_log}" || {
+        echo "Expected '--memory 4g' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "DEVENV_MEMORY_SWAP=6g: docker run receives --memory-swap 6g" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    DEVENV_MEMORY_SWAP="6g" \
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv "${project_dir}"
+
+    assert_exit_code 0
+    grep -q -- "--memory-swap 6g" "${docker_log}" || {
+        echo "Expected '--memory-swap 6g' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "DEVENV_CPUS=2: docker run receives --cpus 2" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    DEVENV_CPUS="2" \
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv "${project_dir}"
+
+    assert_exit_code 0
+    grep -q -- "--cpus 2" "${docker_log}" || {
+        echo "Expected '--cpus 2' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "default resources: docker run receives --memory 8g --memory-swap 12g --cpus 4" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run env -u DEVENV_MEMORY -u DEVENV_MEMORY_SWAP -u DEVENV_CPUS devenv "${project_dir}"
+
+    assert_exit_code 0
+    grep -q -- "--memory 8g" "${docker_log}" || {
+        echo "Expected '--memory 8g' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    grep -q -- "--memory-swap 12g" "${docker_log}" || {
+        echo "Expected '--memory-swap 12g' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    grep -q -- "--cpus 4" "${docker_log}" || {
+        echo "Expected '--cpus 4' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
 @test "devenv volume rm --all with in-use volume: exits 1 and error mentions mounted by a running container" {
     local docker_log="${BATS_TMPDIR}/docker_calls.log"
     rm -f "${docker_log}"
