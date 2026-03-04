@@ -7,7 +7,15 @@ LABEL tools=true
 
 USER root
 
-# Install GitHub Copilot CLI
-RUN curl -fsSL https://gh.io/copilot-install | bash
+# Install GitHub Copilot CLI and ensure binary is at /usr/local/bin/copilot
+RUN curl -fsSL https://gh.io/copilot-install | bash \
+    && if [ -f /root/.local/bin/copilot ]; then \
+        mv /root/.local/bin/copilot /usr/local/bin/copilot; \
+        chmod +x /usr/local/bin/copilot; \
+    elif [ -f /usr/local/bin/copilot ]; then \
+        chmod +x /usr/local/bin/copilot; \
+    else \
+        echo "Error: copilot binary not found after install" >&2; exit 1; \
+    fi
 
 USER devuser
