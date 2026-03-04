@@ -9,5 +9,6 @@ This directory contains the authoritative specifications for devenv.
 - [specs/multi-environment-architecture.md](specs/multi-environment-architecture.md) - multi-environment architecture (repo-base, shared foundation)
 - [specs/headless-exec.md](specs/headless-exec.md) - headless command execution in devenv containers
 - [specs/dolt-server-lifecycle.md](specs/dolt-server-lifecycle.md) - Dolt server lifecycle management for multi-agent beads access
+- [specs/testing-standard.md](specs/testing-standard.md) - testing trophy approach, bats-core framework, test layout and acceptance criteria
 
 Related planning and research documents live in `plans`.

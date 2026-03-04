@@ -91,6 +91,7 @@ tests/
     devenv_primitives.bats
     build_devenv_cli.bats
     install_devenv_cli.bats
+    log_primitives.bats
   e2e-human/
     README.md
     devenv_e2e.bats
@@ -135,7 +136,7 @@ run in CI by default.
 ### For `shared/bash/log.sh`:
 
 - **Primitives**: `log_debug`, `log_info`, `log_warning`, `log_error`, `die`.
-- **Behavior**: Log level filtering via `LOG_LEVEL`, `die` exits with code 1.
+- **Behavior**: Log level filtering via `DEVENV_LOG_LEVEL`, `die` exits with code 1.
 
 ## Acceptance Criteria (for Test Implementation)
 
