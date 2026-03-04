@@ -121,6 +121,17 @@ _source_build_devenv() {
     }
 }
 
+@test "build-devenv --tool bats: exits 0 and fake docker log shows build with Dockerfile.bats" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    DOCKER_LOG="${docker_log}" run build-devenv --tool bats
+    assert_exit_code 0
+    [[ -f "${docker_log}" ]] || { echo "docker log not created"; return 1; }
+    grep -q "Dockerfile.bats" "${docker_log}" || {
+        echo "Expected 'Dockerfile.bats' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
 @test "build-devenv --project /nonexistent: exits 1 and stderr mentions does not exist" {
     run build-devenv --project /nonexistent/path/xyz
     assert_exit_code 1
