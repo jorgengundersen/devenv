@@ -521,9 +521,9 @@ devenv volume rm --force ...  # skip confirmation prompt
 
 **When `devenv .` is invoked and NO container exists for the project:**
 
-1. Pre-allocate a free port:
+1. Pre-allocate a free port via `uv run python3` (python3 is not installed as a system binary; `uv` is the project convention for running Python):
    ```bash
-   python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'
+   uv run python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'
    ```
 2. Start container in background:
    ```bash
