@@ -43,10 +43,8 @@ load '../helpers/assert_output.bash'
 @test "devenv stop (no target): exits 1 and stderr contains error message" {
     run devenv stop
     assert_exit_code 1
-    # die() emits to stderr which bats captures in $output.
-    [[ "${output}" =~ "stop requires a path, name, or --all" ]] || {
-        echo "output: ${output}"; return 1
-    }
+    # die() emits to stderr; bats merges stderr into $output in default (merged) mode.
+    assert_stdout_contains "stop requires a path, name, or --all"
 }
 
 @test "devenv stop --all (no running containers): exits 0" {
@@ -63,17 +61,15 @@ load '../helpers/assert_output.bash'
 @test "devenv volume (no subcommand): exits 1 and stderr mentions Unknown volume command" {
     run devenv volume
     assert_exit_code 1
-    [[ "${output}" =~ "Unknown volume command" ]] || {
-        echo "output: ${output}"; return 1
-    }
+    # die() emits to stderr; bats merges stderr into $output in default (merged) mode.
+    assert_stdout_contains "Unknown volume command"
 }
 
 @test "devenv volume rm (no args): exits 1 and stderr contains Specify a volume name" {
     run devenv volume rm
     assert_exit_code 1
-    [[ "${output}" =~ "Specify a volume name" ]] || {
-        echo "output: ${output}"; return 1
-    }
+    # die() emits to stderr; bats merges stderr into $output in default (merged) mode.
+    assert_stdout_contains "Specify a volume name"
 }
 
 @test "devenv volume list: exits 0 and fake docker received volume ls call" {
@@ -301,7 +297,6 @@ load '../helpers/assert_output.bash'
     DOCKER_LOG="${docker_log}" \
         run devenv volume rm --all --force
     assert_exit_code 1
-    [[ "${output}" =~ "mounted by a running container" ]] || {
-        echo "output: ${output}"; return 1
-    }
+    # die() emits to stderr; bats merges stderr into $output in default (merged) mode.
+    assert_stdout_contains "mounted by a running container"
 }
