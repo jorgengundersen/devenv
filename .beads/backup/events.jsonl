@@ -7,3 +7,19 @@
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T09:14:10Z","event_type":"created","id":7,"issue_id":"devenv-poj","new_value":"","old_value":""}
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T09:14:13Z","event_type":"closed","id":8,"issue_id":"devenv-poj","new_value":"Fixed in commit a1cab3b: hardened entrypoint.sh with unconditional state cleanup, two-pass dolt process kill, and final sql-server.info removal before server start","old_value":""}
 {"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:02:47Z","event_type":"created","id":9,"issue_id":"devenv-9g6","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:02:59Z","event_type":"created","id":10,"issue_id":"devenv-d87","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:00Z","event_type":"created","id":11,"issue_id":"devenv-xmk","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:11Z","event_type":"created","id":12,"issue_id":"devenv-5nl","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:20Z","event_type":"created","id":13,"issue_id":"devenv-mw1","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:21Z","event_type":"created","id":14,"issue_id":"devenv-uuu","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:25Z","event_type":"created","id":15,"issue_id":"devenv-0mm","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:40Z","event_type":"created","id":16,"issue_id":"devenv-tee","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:43Z","event_type":"created","id":17,"issue_id":"devenv-gxj","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:56Z","event_type":"created","id":18,"issue_id":"devenv-yfq","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:03:59Z","event_type":"created","id":19,"issue_id":"devenv-peb","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:05Z","event_type":"created","id":20,"issue_id":"devenv-4bz","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:18Z","event_type":"created","id":21,"issue_id":"devenv-fv7","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:22Z","event_type":"created","id":22,"issue_id":"devenv-3em","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:24Z","event_type":"created","id":23,"issue_id":"devenv-pti","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:39Z","event_type":"created","id":24,"issue_id":"devenv-71n","new_value":"","old_value":""}
+{"actor":"Jørgen Gundersen","comment":null,"created_at":"2026-03-03T11:04:43Z","event_type":"created","id":25,"issue_id":"devenv-kmi","new_value":"","old_value":""}
