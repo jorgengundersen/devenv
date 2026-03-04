@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# tests/fixtures/bin/docker - Fake docker executable for testing.
+#
+# Logs all invocations to ${DOCKER_LOG} or ${BATS_TMPDIR}/docker_calls.log.
+# Returns exit 0 by default.
+#
+# Environment overrides:
+#   FAKE_DOCKER_EXIT    Override exit code (default: 0)
+#   FAKE_DOCKER_OUTPUT  Canned stdout for this invocation
+#   DOCKER_LOG          Path to log file (default: ${BATS_TMPDIR}/docker_calls.log)
+
+set -euo pipefail
+
+_log="${DOCKER_LOG:-${BATS_TMPDIR:-/tmp}/docker_calls.log}"
+_exit_code="${FAKE_DOCKER_EXIT:-0}"
+_output="${FAKE_DOCKER_OUTPUT:-}"
+
+# Log the full invocation (subcommand + all args) on one line.
+printf '%s\n' "$*" >> "${_log}"
+
+# If canned output is set, emit it.
+if [[ -n "${_output}" ]]; then
+    printf '%s\n' "${_output}"
+fi
+
+exit "${_exit_code}"
