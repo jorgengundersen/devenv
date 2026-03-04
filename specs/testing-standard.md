@@ -57,9 +57,11 @@ part of a stable API:
 - Prefer CLI contract tests for orchestration-heavy behavior (where the boundary
   is clearer).
 - Only mark primitives as stable if they have clear, reusable contracts.
-- When a primitive is duplicated across scripts (e.g., `resolve_project_path` in
-  both `bin/devenv` and `bin/build-devenv`), each copy must be tested
-  independently until the duplication is resolved by extracting a shared library.
+- Shared primitives (e.g., `derive_project_image_suffix`, `resolve_project_path`)
+  live in `shared/bash/primitives.sh`, which is the canonical location. Both
+  `bin/devenv` and `bin/build-devenv` source this shared library. Tests for
+  shared primitives belong in `tests/bats/shared_primitives.bats` and test the
+  shared library directly — not per-script copies.
 
 ## Recommended Test Framework
 
