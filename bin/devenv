@@ -3,12 +3,6 @@ set -euo pipefail
 
 # devenv - Runtime environment launcher for containerized development
 
-is_valid_port() {
-    local port="$1"
-
-    [[ "${port}" =~ ^[0-9]+$ ]] || return 1
-    ((port >= 1 && port <= 65535)) || return 1
-}
 # --- Constants ---
 DEVENV_HOME="${DEVENV_HOME:-$(
     script_path="${BASH_SOURCE[0]}"
@@ -36,6 +30,14 @@ readonly DEFAULT_CPUS="4"
 . "${DEVENV_HOME}/shared/bash/primitives.sh"
 
 # --- Primitives ---
+# Return 0 if the argument is a valid TCP port number (1–65535).
+is_valid_port() {
+    local port="$1"
+
+    [[ "${port}" =~ ^[0-9]+$ ]] || return 1
+    ((port >= 1 && port <= 65535)) || return 1
+}
+
 # Print usage information.
 usage() {
     cat << EOF
