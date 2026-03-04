@@ -115,6 +115,16 @@ build_stage_devenv_base() {
     log_info "Devenv-base image built successfully: ${IMAGE_PREFIX}-base:${version}"
 }
 
+# Ordered list of all tool names required by the devenv image.
+# Dependencies must appear before dependents (fnm before node, jq before ripgrep, node before tree-sitter).
+readonly DEVENV_TOOLS=(
+    cargo go fnm uv fzf jq
+    node ripgrep
+    gh nvim opencode copilot-cli starship yq tree-sitter
+    make shellcheck hadolint mdformat
+    beads dolt bats
+)
+
 # Build the devenv image (complete environment).
 build_stage_devenv() {
     log_info "Building devenv image..."
@@ -128,6 +138,15 @@ build_stage_devenv() {
         log_info "Devenv-base image not found, building first..."
         build_stage_devenv_base
     fi
+
+    # Ensure all tool images are present before building the devenv image.
+    local tool
+    for tool in "${DEVENV_TOOLS[@]}"; do
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-${tool}:latest$"; then
+            log_info "Tool image tools-${tool}:latest not found, building..."
+            build_tool "${tool}"
+        fi
+    done
 
     local dockerfile="${DEVENV_HOME}/docker/devenv/Dockerfile.devenv"
     if [[ ! -f "${dockerfile}" ]]; then

@@ -25,180 +25,44 @@ RUN apt-get update \
         netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Stage 2: Runtime and build tools (can be built in parallel)
-FROM repo-base:latest AS tool_cargo
-USER root
-ENV CARGO_HOME=/usr/local/cargo
-ENV RUSTUP_HOME=/usr/local/rustup
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
+# Stage 2: Tool images (pre-built via build-devenv --tool <name>)
+FROM tools-cargo:latest AS tool_cargo
 
-FROM repo-base:latest AS tool_go
-USER root
-RUN GO_RUNTIME_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n 1) \
-    && curl -LO "https://go.dev/dl/${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
-    && rm -rf /usr/local/go \
-    && tar -C /usr/local -xzf "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz" \
-    && rm "${GO_RUNTIME_VERSION}.linux-amd64.tar.gz"
+FROM tools-go:latest AS tool_go
 
-FROM repo-base:latest AS tool_fnm
-USER root
-# Install unzip which is required by fnm installer
-RUN apt-get update && apt-get install -y --no-install-recommends unzip \
-    && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin \
-    && chmod +x /usr/local/bin/fnm
+FROM tools-fnm:latest AS tool_fnm
 
-FROM repo-base:latest AS tool_uv
-USER root
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && mv /root/.local/bin/uv /usr/local/bin/uv \
-    && mv /root/.local/bin/uvx /usr/local/bin/uvx \
-    && chmod +x /usr/local/bin/uv /usr/local/bin/uvx
+FROM tools-uv:latest AS tool_uv
 
-FROM repo-base:latest AS tool_fzf
-USER root
-RUN git clone --depth 1 https://github.com/junegunn/fzf.git /root/.fzf \
-    && /root/.fzf/install
+FROM tools-fzf:latest AS tool_fzf
 
-FROM repo-base:latest AS tool_jq
-USER root
-COPY --from=ghcr.io/jqlang/jq:1.7.1 /jq /usr/local/bin/jq
-RUN chmod +x /usr/local/bin/jq
+FROM tools-jq:latest AS tool_jq
 
+FROM tools-node:latest AS tool_node
 
-# Stage 3: Dependent tools
-FROM repo-base:latest AS tool_node
-USER root
-# Copy fnm
-COPY --from=tool_fnm /usr/local/bin/fnm /usr/local/bin/fnm
-RUN chmod +x /usr/local/bin/fnm
-# Install Node.js
-RUN eval "$(/usr/local/bin/fnm env)" \
-    && /usr/local/bin/fnm install --lts \
-    && /usr/local/bin/fnm use lts-latest \
-    && /usr/local/bin/fnm default lts-latest \
-    && NODE_PATH=$(command -v node | xargs dirname) \
-    && NODE_ROOT=$(dirname "${NODE_PATH}") \
-    && mkdir -p /opt/node \
-    && cp -a "${NODE_ROOT}/." /opt/node/
-# Create symlinks
-RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
-    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
-    && ln -sf /opt/node/bin/npx /usr/local/bin/npx
+FROM tools-ripgrep:latest AS tool_ripgrep
 
-FROM repo-base:latest AS tool_ripgrep
-USER root
+FROM tools-gh:latest AS tool_gh
 
-# Runtime deps for Neovim plugins and LSP installers
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-# Copy dependencies
-COPY --from=tool_cargo /usr/local/cargo /usr/local/cargo
-COPY --from=tool_cargo /usr/local/rustup /usr/local/rustup
-COPY --from=tool_jq /usr/local/bin/jq /usr/local/bin/jq
-RUN chmod +x /usr/local/bin/jq
-# Install ripgrep
-RUN LATEST_TAG=$(curl -s https://api.github.com/repos/BurntSushi/ripgrep/releases/latest | /usr/local/bin/jq -r '.tag_name') \
-    && curl -LO "https://github.com/BurntSushi/ripgrep/releases/download/${LATEST_TAG}/ripgrep_${LATEST_TAG}-1_amd64.deb" \
-    && dpkg -i "ripgrep_${LATEST_TAG}-1_amd64.deb" \
-    && rm "ripgrep_${LATEST_TAG}-1_amd64.deb"
+FROM tools-nvim:latest AS tool_nvim
 
-# Stage 4: Standalone tools
-FROM repo-base:latest AS tool_gh
-USER root
-RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
-    && mkdir -p -m 755 /etc/apt/keyrings \
-    && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && mkdir -p -m 755 /etc/apt/sources.list.d \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install gh -y \
-    && rm -rf /var/lib/apt/lists/*
+FROM tools-opencode:latest AS tool_opencode
 
-FROM repo-base:latest AS tool_nvim
-USER root
-RUN curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz \
-    && rm -rf /opt/nvim-linux-x86_64 \
-    && tar -C /opt -xzf nvim-linux-x86_64.tar.gz \
-    && rm nvim-linux-x86_64.tar.gz \
-    && ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+FROM tools-copilot-cli:latest AS tool_copilot-cli
 
-FROM repo-base:latest AS tool_opencode
-USER root
-RUN curl -fsSL https://opencode.ai/install | bash \
-    && if [ -f /root/.opencode/bin/opencode ]; then \
-        mv /root/.opencode/bin/opencode /usr/local/bin/opencode; \
-        chmod +x /usr/local/bin/opencode; \
-    elif [ -f /usr/local/bin/opencode ]; then \
-        chmod +x /usr/local/bin/opencode; \
-    fi
+FROM tools-starship:latest AS tool_starship
 
-FROM repo-base:latest AS tool_copilot-cli
-USER root
-RUN curl -fsSL https://gh.io/copilot-install | bash \
-    && if [ -f /root/.local/bin/copilot ]; then \
-        mv /root/.local/bin/copilot /usr/local/bin/copilot; \
-        chmod +x /usr/local/bin/copilot; \
-    elif [ -f /usr/local/bin/copilot ]; then \
-        chmod +x /usr/local/bin/copilot; \
-    else \
-        echo "Error: copilot binary not found after install" >&2; exit 1; \
-    fi
-
-FROM repo-base:latest AS tool_starship
-USER root
-RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
-
-FROM repo-base:latest AS tool_yq
-USER root
-RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
-    && chmod +x /usr/local/bin/yq
+FROM tools-yq:latest AS tool_yq
 
 FROM tools-tree-sitter:latest AS tool_tree_sitter
 
-FROM repo-base:latest AS tool_make
-USER root
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends make \
-    && rm -rf /var/lib/apt/lists/*
+FROM tools-make:latest AS tool_make
 
-FROM repo-base:latest AS tool_shellcheck
-USER root
-RUN apt-get update && apt-get install -y --no-install-recommends xz-utils \
-    && rm -rf /var/lib/apt/lists/*
-RUN SHELLCHECK_URL=$(curl -fsSL https://api.github.com/repos/koalaman/shellcheck/releases/latest | \
-    sed -n 's/.*"browser_download_url": "\(https:[^"]*linux.x86_64.tar.xz\)".*/\1/p' | head -n 1) \
-    && if [ -z "${SHELLCHECK_URL}" ]; then \
-        echo "Unable to resolve shellcheck download URL" >&2; \
-        exit 1; \
-    fi \
-    && SHELLCHECK_ARCHIVE="${SHELLCHECK_URL##*/}" \
-    && SHELLCHECK_DIR="${SHELLCHECK_ARCHIVE%.linux.x86_64.tar.xz}" \
-    && curl -fsSLO "${SHELLCHECK_URL}" \
-    && tar -xJf "${SHELLCHECK_ARCHIVE}" \
-    && mv "${SHELLCHECK_DIR}/shellcheck" /usr/local/bin/shellcheck \
-    && chmod +x /usr/local/bin/shellcheck \
-    && rm -rf "${SHELLCHECK_DIR}" "${SHELLCHECK_ARCHIVE}"
+FROM tools-shellcheck:latest AS tool_shellcheck
 
-FROM repo-base:latest AS tool_hadolint
-USER root
-RUN HADOLINT_VERSION=$(curl -fsSL https://api.github.com/repos/hadolint/hadolint/releases/latest | \
-    sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p') \
-    && curl -fsSLO "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
-    && mv hadolint-Linux-x86_64 /usr/local/bin/hadolint \
-    && chmod +x /usr/local/bin/hadolint
+FROM tools-hadolint:latest AS tool_hadolint
 
-FROM repo-base:latest AS tool_mdformat
-USER root
-RUN apt-get update && apt-get install -y --no-install-recommends pipx \
-    && rm -rf /var/lib/apt/lists/* \
-    && pipx install mdformat \
-    && mv /root/.local/bin/mdformat /usr/local/bin/mdformat \
-    && chmod +x /usr/local/bin/mdformat
+FROM tools-mdformat:latest AS tool_mdformat
 
 FROM tools-beads:latest AS tool_beads
 
