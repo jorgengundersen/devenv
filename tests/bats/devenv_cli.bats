@@ -106,17 +106,18 @@ load '../helpers/assert_output.bash'
 @test "devenv volume rm --all --force: exits 0 and fake docker called volume rm" {
     local docker_log="${BATS_TMPDIR}/docker_calls.log"
     rm -f "${docker_log}"
-    # volume ls returns one volume name; then it will be removed.
-    FAKE_DOCKER_OUTPUT="devenv-test-vol" DOCKER_LOG="${docker_log}" run devenv volume rm --all --force
-    # volume ls is called first (returns devenv-test-vol), then volume rm.
-    # But fake docker always returns FAKE_DOCKER_OUTPUT for ALL calls.
-    # Since volume inspect needs to succeed (exit 0, default) and ps needs empty (in-use check),
-    # this test may not fully exercise the rm path due to fake docker limitations.
-    # Assert at minimum that it exits without error OR that the docker log shows the attempt.
-    [[ -f "${docker_log}" ]] || { echo "docker log not created"; return 1; }
-    # Accept exit 0 or 1 but verify docker was called.
-    [[ "${status}" -eq 0 || "${status}" -eq 1 ]] || {
-        echo "Unexpected exit code: ${status}"; return 1
+    # Per-subcommand fake docker overrides:
+    #   volume ls  → returns one volume name (so --all has something to remove)
+    #   ps         → returns empty (volume not in use)
+    #   volume inspect → exits 0, empty output (volume exists; default)
+    #   volume rm  → exits 0 (default)
+    FAKE_DOCKER_VOLUME_LS_OUTPUT="devenv-test-vol" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv volume rm --all --force
+    assert_exit_code 0
+    grep -q "volume rm devenv-test-vol" "${docker_log}" || {
+        echo "Expected 'volume rm devenv-test-vol' in docker log. Got: $(cat "${docker_log}")"; return 1
     }
 }
 

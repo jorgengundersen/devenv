@@ -4,19 +4,70 @@
 # Logs all invocations to ${DOCKER_LOG} or ${BATS_TMPDIR}/docker_calls.log.
 # Returns exit 0 by default.
 #
-# Environment overrides:
+# Environment overrides (global, applied when no per-subcommand override matches):
 #   FAKE_DOCKER_EXIT    Override exit code (default: 0)
 #   FAKE_DOCKER_OUTPUT  Canned stdout for this invocation
 #   DOCKER_LOG          Path to log file (default: ${BATS_TMPDIR}/docker_calls.log)
+#
+# Per-subcommand output overrides (take precedence over FAKE_DOCKER_OUTPUT):
+#   FAKE_DOCKER_INFO_OUTPUT         Output for: docker info [...]
+#   FAKE_DOCKER_PS_OUTPUT           Output for: docker ps [...]
+#   FAKE_DOCKER_VOLUME_LS_OUTPUT    Output for: docker volume ls [...]
+#   FAKE_DOCKER_VOLUME_INSPECT_OUTPUT  Output for: docker volume inspect [...]
+#   FAKE_DOCKER_VOLUME_RM_OUTPUT    Output for: docker volume rm [...]
+#   FAKE_DOCKER_VOLUME_CREATE_OUTPUT   Output for: docker volume create [...]
+#
+# Per-subcommand exit code overrides:
+#   FAKE_DOCKER_INFO_EXIT
+#   FAKE_DOCKER_PS_EXIT
+#   FAKE_DOCKER_VOLUME_LS_EXIT
+#   FAKE_DOCKER_VOLUME_INSPECT_EXIT
+#   FAKE_DOCKER_VOLUME_RM_EXIT
+#   FAKE_DOCKER_VOLUME_CREATE_EXIT
 
 set -euo pipefail
 
 _log="${DOCKER_LOG:-${BATS_TMPDIR:-/tmp}/docker_calls.log}"
-_exit_code="${FAKE_DOCKER_EXIT:-0}"
-_output="${FAKE_DOCKER_OUTPUT:-}"
 
 # Log the full invocation (subcommand + all args) on one line.
 printf '%s\n' "$*" >> "${_log}"
+
+# Determine the subcommand key from the first one or two arguments.
+_subcommand_key=""
+case "${1:-}" in
+    info)     _subcommand_key="INFO" ;;
+    ps)       _subcommand_key="PS" ;;
+    run)      _subcommand_key="RUN" ;;
+    stop)     _subcommand_key="STOP" ;;
+    rm)       _subcommand_key="RM" ;;
+    exec)     _subcommand_key="EXEC" ;;
+    inspect)  _subcommand_key="INSPECT" ;;
+    volume)
+        case "${2:-}" in
+            ls)      _subcommand_key="VOLUME_LS" ;;
+            inspect) _subcommand_key="VOLUME_INSPECT" ;;
+            rm)      _subcommand_key="VOLUME_RM" ;;
+            create)  _subcommand_key="VOLUME_CREATE" ;;
+            *)       _subcommand_key="VOLUME" ;;
+        esac
+        ;;
+esac
+
+# Resolve per-subcommand overrides, falling back to global overrides.
+_exit_var="FAKE_DOCKER_${_subcommand_key}_EXIT"
+_output_var="FAKE_DOCKER_${_subcommand_key}_OUTPUT"
+
+if [[ -n "${_subcommand_key}" && -n "${!_exit_var+x}" ]]; then
+    _exit_code="${!_exit_var}"
+else
+    _exit_code="${FAKE_DOCKER_EXIT:-0}"
+fi
+
+if [[ -n "${_subcommand_key}" && -n "${!_output_var+x}" ]]; then
+    _output="${!_output_var}"
+else
+    _output="${FAKE_DOCKER_OUTPUT:-}"
+fi
 
 # If canned output is set, emit it.
 if [[ -n "${_output}" ]]; then
