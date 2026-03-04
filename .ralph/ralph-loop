@@ -1,75 +1,177 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# ralph-loop - Run OpenCode in a continuous Ralph Wiggum loop
+# Ralph Wiggum Loop (minimal)
+# Coined by Geoffrey Huntley - https://ghuntley.com/ralph
+#
+# Core idea: fresh context each iteration. One task per loop.
+# The agent reads specs + prompt, picks a ready issue from beads (bd),
+# implements it with backpressure (tests/build), closes the issue,
+# and commits. Then the session ends and a fresh one starts.
 
-# --- Constants ---
-readonly PROMPT_FILE="${RALPH_PROMPT_FILE:-/workspace/.ralph/PROMPT.md}"
-readonly LOOP_DELAY_SECONDS=2
+# ---------------------------------------------------------------------------
+# Defaults (adjust these)
+# ---------------------------------------------------------------------------
+DEFAULT_MODEL="github-copilot/claude-sonnet-4.6"
+DEFAULT_PROMPT=".ralph/PROMPT.md"
+DEFAULT_MAX_ITERATIONS=10
+DEFAULT_DONE_FILE=".ralph/DONE"
+DEFAULT_LOG_DIR=".ralph/logs"
 
-# --- Logging ---
+# ---------------------------------------------------------------------------
+# Resolve paths
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-_log() {
-    local level="$1"; shift
-    printf '[%s] [%-7s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "${level}" "$*" >&2
+# ---------------------------------------------------------------------------
+# Usage
+# ---------------------------------------------------------------------------
+usage() {
+  cat <<EOF
+usage: ralph-loop [options]
+
+options:
+  -m, --model <model>       model to use (default: $DEFAULT_MODEL)
+  -p, --prompt <file>       prompt file, relative to project root (default: $DEFAULT_PROMPT)
+  -n, --max-iterations <n>  max loop iterations (default: $DEFAULT_MAX_ITERATIONS)
+  -h, --help                show this help
+EOF
+  exit 0
 }
 
-log_info() { _log "INFO" "$@"; }
-log_error() { _log "ERROR" "$@"; }
+# ---------------------------------------------------------------------------
+# Parse args
+# ---------------------------------------------------------------------------
+MODEL="$DEFAULT_MODEL"
+PROMPT_REL="$DEFAULT_PROMPT"
+MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
+DONE_FILE="$PROJECT_DIR/$DEFAULT_DONE_FILE"
+LOG_DIR="$PROJECT_DIR/$DEFAULT_LOG_DIR"
 
-die() { log_error "$@"; exit 1; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -m|--model)          MODEL="$2"; shift 2 ;;
+    -p|--prompt)         PROMPT_REL="$2"; shift 2 ;;
+    -n|--max-iterations) MAX_ITERATIONS="$2"; shift 2 ;;
+    -h|--help)           usage ;;
+    *) echo "error: unknown option: $1" >&2; usage ;;
+  esac
+done
 
-# --- Primitives ---
+PROMPT_FILE="$PROJECT_DIR/$PROMPT_REL"
 
-validate_prompt_file() {
-    if [[ ! -f "${PROMPT_FILE}" ]]; then
-        die "Prompt file not found: ${PROMPT_FILE}"
-    fi
-    if [[ ! -s "${PROMPT_FILE}" ]]; then
-        die "Prompt file is empty: ${PROMPT_FILE}"
-    fi
+# ---------------------------------------------------------------------------
+# Logging — timestamped log file per run, symlink 'latest'
+# ---------------------------------------------------------------------------
+RUN_TS="$(date '+%Y%m%dT%H%M%S')"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/${RUN_TS}.log"
+: > "$LOG_FILE"
+ln -sf "$LOG_FILE" "$LOG_DIR/latest"
+
+log() {
+  local level="$1"; shift
+  local ts
+  ts="$(date '+%Y-%m-%dT%H:%M:%S%z')"
+  printf '%s [%s] %s\n' "$ts" "$level" "$*" | tee -a "$LOG_FILE"
 }
 
-run_opencode() {
-    local prompt
-    local rc=0
-    prompt=$(<"${PROMPT_FILE}")
-
-    log_info "Sending prompt to OpenCode..."
-    opencode run "${prompt}" || rc=$?
-
-    if (( rc != 0 )); then
-        log_error "OpenCode exited with non-zero status: ${rc}"
-        return 1
-    fi
-}
-
-# --- Commands ---
-
-run_loop() {
-    local iteration=1
-
-    validate_prompt_file
-
-    log_info "Starting Ralph loop with prompt: ${PROMPT_FILE}"
-    log_info "Working directory: $(pwd)"
-
-    while :; do
-        log_info "--- Iteration ${iteration} ---"
-
-        run_opencode || log_error "Iteration ${iteration} failed, continuing..."
-
-        iteration=$((iteration + 1))
-        sleep "${LOOP_DELAY_SECONDS}"
-    done
-}
-
-# --- Entrypoint ---
-
-main() {
-    run_loop
-}
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+if [[ ! -f "$PROMPT_FILE" ]]; then
+  log ERROR "prompt file not found: $PROMPT_FILE"
+  exit 1
 fi
+
+if ! command -v opencode &>/dev/null; then
+  log ERROR "opencode not found in PATH"
+  exit 1
+fi
+
+if ! command -v bd &>/dev/null; then
+  log ERROR "bd (beads) not found in PATH"
+  exit 1
+fi
+
+if ! [[ "$MAX_ITERATIONS" =~ ^[0-9]+$ ]] || [[ "$MAX_ITERATIONS" -lt 1 ]]; then
+  log ERROR "max iterations must be a positive integer: $MAX_ITERATIONS"
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Reset done file
+# ---------------------------------------------------------------------------
+: > "$DONE_FILE"
+
+# ---------------------------------------------------------------------------
+# Exit checks
+# ---------------------------------------------------------------------------
+check_done_file() {
+  [[ -f "$DONE_FILE" ]] && grep -qi '^DONE$' "$DONE_FILE"
+}
+
+check_no_ready_work() {
+  local ready
+  ready="$(bd ready --json 2>/dev/null)"
+  [[ "$ready" == "[]" || "$ready" == "" ]]
+}
+
+# ---------------------------------------------------------------------------
+# Main loop
+# ---------------------------------------------------------------------------
+RUN_START=$(date +%s)
+
+log INFO "event=start project=$PROJECT_DIR model=$MODEL prompt=$PROMPT_REL max=$MAX_ITERATIONS log=$LOG_FILE"
+
+SESSIONS_RUN=0
+EXIT_REASON=""
+
+for ((LOOP_COUNT=1; LOOP_COUNT<=MAX_ITERATIONS; LOOP_COUNT++)); do
+
+  # --- guard: done file ---
+  if check_done_file; then
+    log INFO "event=done_file loop=$LOOP_COUNT msg=done file signals DONE"
+    EXIT_REASON="done"
+    break
+  fi
+
+  # --- guard: no ready work in beads ---
+  if check_no_ready_work; then
+    log INFO "event=no_ready_work loop=$LOOP_COUNT msg=no ready issues in beads"
+    EXIT_REASON="no_ready_work"
+    break
+  fi
+
+  READY_COUNT="$(bd ready --json 2>/dev/null | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null || echo '?')"
+  log INFO "event=session_start loop=$LOOP_COUNT/$MAX_ITERATIONS ready=$READY_COUNT"
+
+  ITER_START=$(date +%s)
+  PROMPT=$(cat "$PROMPT_FILE")
+  set +e
+  opencode run "$PROMPT" --model "$MODEL" --dir "$PROJECT_DIR" --thinking "true"
+  SESSION_EXIT=$?
+  set -e
+  ITER_END=$(date +%s)
+
+  log INFO "event=session_end loop=$LOOP_COUNT/$MAX_ITERATIONS exit_code=$SESSION_EXIT duration=$((ITER_END - ITER_START))s"
+
+  SESSIONS_RUN=$((SESSIONS_RUN + 1))
+
+  # --- post-iteration check: done file ---
+  if check_done_file; then
+    log INFO "event=done_file loop=$LOOP_COUNT msg=done file signals DONE after session"
+    EXIT_REASON="done"
+    break
+  fi
+done
+
+if [[ -z "$EXIT_REASON" ]] && [[ "$SESSIONS_RUN" -ge "$MAX_ITERATIONS" ]]; then
+  log WARN "event=max_iterations max=$MAX_ITERATIONS msg=max iterations reached"
+  EXIT_REASON="max"
+fi
+
+REMAINING_READY="$(bd ready --json 2>/dev/null | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null || echo '?')"
+RUN_END=$(date +%s)
+log INFO "event=finish sessions=$SESSIONS_RUN exit_reason=$EXIT_REASON remaining_ready=$REMAINING_READY total_duration=$((RUN_END - RUN_START))s"

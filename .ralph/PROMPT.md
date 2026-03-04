@@ -1,24 +1,17 @@
-# Ralph Task
+# Ralph Loop Prompt
 
-## Goal
+Review @specs/README.md to get a spec overview.
+Review @AGENTS.md for coding standards.
 
-Describe what you want Ralph to accomplish here.
+Run `bd ready --json` to see unblocked issues. Pick the highest-priority one.
+Claim it: `bd update <id> --claim` (only ONE)
 
-## Context
+Implement it.
 
-- Working directory: `/workspace` (the devenv project root)
-- You have access to: bash, git, ripgrep, shellcheck, hadolint
-- You do NOT have internet access or Docker
-- You cannot install packages
-
-## Instructions
-
-Replace this section with your specific task instructions.
-
-## Constraints
-
-- Follow the coding standards in `specs/coding-standard.md`
-- Run `shellcheck` on any bash scripts you create or modify
-- Run `hadolint` on any Dockerfiles you create or modify
-- Do not attempt to install packages or run `nix-env`
-- Commit your work with clear, descriptive messages
+Rules:
+- Run tests before starting; fix any failures (no quick fixes, only proper fixes).
+- ONE task per session. Do not do more than one.
+- ONE task = ONE issue from `bd ready`.
+- Use subagents as needed
+- Anti-paralysis: when ambiguous, pick the smallest safe default aligned with specs, implement it, move on.
+- Deleting the whole repo is never a solution to anything.

@@ -1,0 +1,17 @@
+2026-03-04T10:56:37+0000 [INFO] event=start project=/home/devuser/Repos/github.com/jorgengundersen/devenv model=github-copilot/claude-sonnet-4.6 prompt=.ralph/PROMPT.md max=20 log=/home/devuser/Repos/github.com/jorgengundersen/devenv/.ralph/logs/20260304T105637.log
+2026-03-04T10:56:37+0000 [INFO] event=session_start loop=1/20 ready=?
+2026-03-04T10:59:12+0000 [INFO] event=session_end loop=1/20 exit_code=0 duration=155s
+2026-03-04T10:59:12+0000 [INFO] event=session_start loop=2/20 ready=?
+2026-03-04T11:01:10+0000 [INFO] event=session_end loop=2/20 exit_code=0 duration=118s
+2026-03-04T11:01:10+0000 [INFO] event=session_start loop=3/20 ready=?
+2026-03-04T11:02:56+0000 [INFO] event=session_end loop=3/20 exit_code=0 duration=106s
+2026-03-04T11:02:56+0000 [INFO] event=session_start loop=4/20 ready=?
+2026-03-04T11:04:54+0000 [INFO] event=session_end loop=4/20 exit_code=0 duration=118s
+2026-03-04T11:04:55+0000 [INFO] event=session_start loop=5/20 ready=?
+2026-03-04T11:06:15+0000 [INFO] event=session_end loop=5/20 exit_code=0 duration=80s
+2026-03-04T11:06:15+0000 [INFO] event=session_start loop=6/20 ready=?
+2026-03-04T11:09:03+0000 [INFO] event=session_end loop=6/20 exit_code=0 duration=168s
+2026-03-04T11:09:03+0000 [INFO] event=session_start loop=7/20 ready=?
+2026-03-04T11:11:40+0000 [INFO] event=session_end loop=7/20 exit_code=0 duration=157s
+2026-03-04T11:11:40+0000 [INFO] event=no_ready_work loop=8 msg=no ready issues in beads
+2026-03-04T11:11:40+0000 [INFO] event=finish sessions=7 exit_reason=no_ready_work remaining_ready=? total_duration=903s
