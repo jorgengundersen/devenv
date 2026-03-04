@@ -293,32 +293,15 @@ load '../helpers/assert_output.bash'
 @test "devenv volume rm --all with in-use volume: exits 1 and error mentions mounted by a running container" {
     local docker_log="${BATS_TMPDIR}/docker_calls.log"
     rm -f "${docker_log}"
-    # To simulate an in-use volume:
-    # 1. `docker volume ls` returns "devenv-data"
-    # 2. `docker ps -q --filter volume=devenv-data` returns a non-empty container ID
-    # This requires per-subcommand fake docker behavior.
-    # We use a custom docker script via a wrapper to simulate this scenario.
-    local fake_dir
-    fake_dir=$(mktemp -d)
-    cat > "${fake_dir}/docker" << 'FAKE'
-#!/usr/bin/env bash
-case "$*" in
-    volume\ ls*)
-        printf 'devenv-data\n'
-        ;;
-    ps\ -q*)
-        printf 'abc123\n'
-        ;;
-    *)
-        ;;
-esac
-exit 0
-FAKE
-    chmod +x "${fake_dir}/docker"
-    PATH="${fake_dir}:${PATH}" run devenv volume rm --all --force
+    # Simulate an in-use volume using per-subcommand fake docker env vars:
+    #   FAKE_DOCKER_VOLUME_LS_OUTPUT → volume ls returns "devenv-data"
+    #   FAKE_DOCKER_PS_OUTPUT        → ps -q returns a non-empty container ID (in use)
+    FAKE_DOCKER_VOLUME_LS_OUTPUT="devenv-data" \
+    FAKE_DOCKER_PS_OUTPUT="abc123" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv volume rm --all --force
     assert_exit_code 1
     [[ "${output}" =~ "mounted by a running container" ]] || {
         echo "output: ${output}"; return 1
     }
-    rm -rf "${fake_dir}"
 }
