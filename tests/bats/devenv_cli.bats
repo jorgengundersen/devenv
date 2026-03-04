@@ -300,3 +300,132 @@ load '../helpers/assert_output.bash'
     # die() emits to stderr; bats merges stderr into $output in default (merged) mode.
     assert_stdout_contains "mounted by a running container"
 }
+
+# ---------------------------------------------------------------------------
+# exec
+# ---------------------------------------------------------------------------
+
+@test "devenv exec (no args): exits 1 and stderr mentions Usage:" {
+    run devenv exec
+    assert_exit_code 1
+    assert_stdout_contains "Usage:"
+}
+
+@test "devenv exec <path> (missing --): exits 1 and stderr mentions Missing '--' separator" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+    run devenv exec "${project_dir}" pwd
+    assert_exit_code 1
+    assert_stdout_contains "Missing '--' separator"
+}
+
+@test "devenv exec <path> -- (no command): exits 1 and stderr mentions No command provided" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+    run devenv exec "${project_dir}" --
+    assert_exit_code 1
+    assert_stdout_contains "No command provided"
+}
+
+@test "devenv exec <path> -- <cmd>: container running, calls docker exec without -it" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    local expected_container_name="devenv-projects-myapp"
+
+    # Container is already running.
+    FAKE_DOCKER_PS_OUTPUT="${expected_container_name}" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv exec "${project_dir}" -- pwd
+
+    assert_exit_code 0
+    [[ -f "${docker_log}" ]] || { echo "docker log not created"; return 1; }
+    # Must have called docker exec (not docker run).
+    grep -q "^exec " "${docker_log}" || {
+        echo "Expected 'docker exec' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    # Must NOT include -it flag (headless, not interactive).
+    if grep -qE "^exec .*-it" "${docker_log}"; then
+        echo "Did not expect '-it' flag in headless exec. Got: $(cat "${docker_log}")"; return 1
+    fi
+    # Must include the container name.
+    grep -q "${expected_container_name}" "${docker_log}" || {
+        echo "Expected container name in docker exec call. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv exec <path> -- <cmd>: container not running, starts it then calls docker exec" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    # Container not running → empty ps output.
+    FAKE_DOCKER_PS_OUTPUT="" \
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv exec "${project_dir}" -- pwd
+
+    assert_exit_code 0
+    [[ -f "${docker_log}" ]] || { echo "docker log not created"; return 1; }
+    # docker run must have been called to start it.
+    grep -q "^run " "${docker_log}" || {
+        echo "Expected 'docker run' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    # docker exec must have been called after.
+    grep -q "^exec " "${docker_log}" || {
+        echo "Expected 'docker exec' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv exec <path> -- <cmd>: workdir is set to container project path" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    local expected_container_name="devenv-projects-myapp"
+
+    FAKE_DOCKER_PS_OUTPUT="${expected_container_name}" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv exec "${project_dir}" -- pwd
+
+    assert_exit_code 0
+    # Expect --workdir with the container-side mirrored path.
+    grep -q -- "--workdir" "${docker_log}" || {
+        echo "Expected '--workdir' in docker exec call. Got: $(cat "${docker_log}")"; return 1
+    }
+    grep -q "projects/myapp" "${docker_log}" || {
+        echo "Expected project path in docker exec call. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv exec <path> -- <cmd>: command is passed to bash -lc" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    local expected_container_name="devenv-projects-myapp"
+
+    FAKE_DOCKER_PS_OUTPUT="${expected_container_name}" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv exec "${project_dir}" -- echo hello
+
+    assert_exit_code 0
+    grep -q "bash -lc" "${docker_log}" || {
+        echo "Expected 'bash -lc' in docker exec call. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv exec: help output contains exec subcommand" {
+    run devenv help
+    assert_exit_code 0
+    assert_stdout_contains "exec"
+}

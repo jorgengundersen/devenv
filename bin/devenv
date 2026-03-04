@@ -47,6 +47,8 @@ Commands:
     list                    List running devenv containers
     stop <path|name>        Stop a devenv container by path or name
     stop --all              Stop all devenv containers
+    exec <path|name> -- <command...>
+                            Run a command headlessly in a devenv container
     volume list             List devenv volumes with size
     volume rm <name>        Remove a specific devenv volume
     volume rm --all         Remove all devenv volumes
@@ -62,6 +64,9 @@ Examples:
     devenv list
     devenv stop .
     devenv stop --all
+    devenv exec . -- pwd
+    devenv exec . -- ls -la
+    devenv exec ~/projects/my-app -- bash -c "echo hello"
     devenv volume list
 
 Resource Limits (override via environment variables):
@@ -360,6 +365,113 @@ attach_container() {
 }
 
 # --- Commands ---
+# Resolve an exec target (path or container name) to (container_name, container_project_path).
+# Outputs two lines: container_name\ncontainer_project_path
+resolve_exec_target() {
+    local target="$1"
+    local project_path container_name container_project_path
+
+    # Try resolving as a filesystem path first.
+    if project_path=$(resolve_project_path "${target}" 2>/dev/null); then
+        container_name=$(derive_container_name "${project_path}") || return 1
+        container_project_path=$(resolve_container_project_path "${project_path}")
+        printf '%s\n%s\n' "${container_name}" "${container_project_path}"
+        return 0
+    fi
+
+    # Fall back: treat target as a literal container name.
+    if docker ps --filter "name=^/${target}$" --format '{{.Names}}' | grep -q .; then
+        printf '%s\n%s\n' "${target}" ""
+        return 0
+    fi
+
+    return 1
+}
+
+# Run a command headlessly inside a container (no TTY).
+exec_in_container() {
+    local container_name="$1"
+    local container_project_path="$2"
+    shift 2
+    # "$@" is the command to run.
+    local -a exec_args
+    exec_args=(
+        --user devuser:devuser
+    )
+    if [[ -n "${container_project_path}" ]]; then
+        exec_args+=(--workdir "${container_project_path}")
+    fi
+    docker exec "${exec_args[@]}" "${container_name}" bash -lc "$*"
+}
+
+# Execute a command headlessly inside a devenv container.
+cmd_exec() {
+    local target=""
+    local -a cmd_parts=()
+
+    # Parse: devenv exec <target> -- <command...>
+    if [[ $# -eq 0 ]]; then
+        log_error "Usage: devenv exec <path|name> -- <command...>"
+        return 1
+    fi
+
+    target="$1"
+    shift
+
+    # Require '--' separator.
+    if [[ "${1:-}" != "--" ]]; then
+        log_error "Missing '--' separator. Usage: devenv exec <path|name> -- <command...>"
+        return 1
+    fi
+    shift  # consume '--'
+
+    if [[ $# -eq 0 ]]; then
+        log_error "No command provided after '--'. Usage: devenv exec <path|name> -- <command...>"
+        return 1
+    fi
+
+    cmd_parts=("$@")
+
+    validate_docker || die "Docker is not available. Install Docker and try again."
+
+    # Resolve target to container name + project path.
+    local resolved container_name container_project_path
+    if ! resolved=$(resolve_exec_target "${target}"); then
+        die "Cannot resolve exec target: ${target}"
+    fi
+    container_name=$(printf '%s\n' "${resolved}" | sed -n '1p')
+    container_project_path=$(printf '%s\n' "${resolved}" | sed -n '2p')
+
+    # If container is not running, start it (background, no attach).
+    if ! is_container_running "${container_name}"; then
+        log_info "Container ${container_name} is not running; starting it..."
+        local project_path image_name ssh_port
+
+        # Resolve the project path from the target (must be a valid path here).
+        project_path=$(resolve_project_path "${target}") || die "Project path does not exist: ${target}"
+        image_name=$(get_image_name "${project_path}") || die "Unable to derive image name"
+
+        if [[ "${image_name}" == "${IMAGE_PREFIX}:latest" ]]; then
+            if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^${IMAGE_PREFIX}:latest$"; then
+                die "Devenv image not found. Run 'build-devenv --stage devenv' first."
+            fi
+        else
+            ensure_project_image "${project_path}"
+        fi
+
+        ssh_port=""
+        if [[ -f "${HOME}/.ssh/authorized_keys" ]]; then
+            ssh_port=$(allocate_port) || ssh_port=""
+        fi
+
+        ensure_volumes
+        start_container "${project_path}" "${container_name}" "${image_name}" "${ssh_port}" "${container_project_path}" >/dev/null
+    fi
+
+    # Execute headlessly; propagate exit code.
+    exec_in_container "${container_name}" "${container_project_path}" "${cmd_parts[@]}"
+}
+
 # Start or attach to a development environment.
 cmd_start() {
     local port_override=""
@@ -614,6 +726,10 @@ main() {
         stop)
             shift
             cmd_stop "$@"
+            ;;
+        exec)
+            shift
+            cmd_exec "$@"
             ;;
         volume)
             shift
