@@ -202,22 +202,31 @@ _source_devenv() {
 # allocate_port
 # ---------------------------------------------------------------------------
 
-@test "allocate_port: returns a numeric port between 1 and 65535" {
+@test "allocate_port: returns a numeric port between 1 and 65535 when uv is available" {
     _source_devenv
+    # uv is present in the devenv container — this must succeed.
     run allocate_port
-    # uv is available in the devenv container.
-    if [[ "${status}" -eq 0 ]]; then
-        [[ "${output}" =~ ^[0-9]+$ ]] || {
-            echo "Expected numeric output, got: ${output}"; return 1
-        }
-        local port="${output}"
-        (( port >= 1 && port <= 65535 )) || {
-            echo "Port out of range: ${port}"; return 1
-        }
-    else
-        # If uv is not available, exit code 1 is acceptable.
-        assert_exit_code 1
-    fi
+    assert_exit_code 0
+    [[ "${output}" =~ ^[0-9]+$ ]] || {
+        echo "Expected numeric output, got: ${output}"; return 1
+    }
+    local port="${output}"
+    (( port >= 1 && port <= 65535 )) || {
+        echo "Port out of range: ${port}"; return 1
+    }
+}
+
+@test "allocate_port: returns exit code 1 and empty stdout when uv is absent" {
+    # Source devenv with a PATH that excludes uv so command -v uv fails.
+    run env PATH="/usr/bin:/bin" bash -c '
+        # shellcheck disable=SC1091
+        DEVENV_LOG_LEVEL=WARNING source "${DEVENV_HOME}/bin/devenv"
+        allocate_port
+    '
+    assert_exit_code 1
+    [[ -z "${output}" ]] || {
+        echo "Expected empty stdout when uv is absent, got: ${output}"; return 1
+    }
 }
 
 # ---------------------------------------------------------------------------
