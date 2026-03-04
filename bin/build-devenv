@@ -19,6 +19,10 @@ readonly IMAGE_PREFIX="devenv"
 # shellcheck disable=SC1091
 . "${DEVENV_HOME}/shared/bash/log.sh"
 
+# --- Shared Primitives ---
+# shellcheck disable=SC1091
+. "${DEVENV_HOME}/shared/bash/primitives.sh"
+
 # --- Primitives ---
 # Print usage information.
 usage() {
@@ -48,7 +52,9 @@ Note: The build context defaults to the repository root.
 EOF
 }
 
+# --- Commands ---
 # Validate Docker availability and daemon state.
+# shellcheck disable=SC2329  # Called from main(); shellcheck cannot trace indirect invocation
 validate_docker() {
     if ! command -v docker >/dev/null 2>&1; then
         log_error "Docker is not installed or not in PATH"
@@ -60,45 +66,18 @@ validate_docker() {
     fi
 }
 
-# Resolve a path argument to a canonical absolute path.
-resolve_project_path() {
-    local raw_path="$1"
-    local path
-
-    if [[ "${raw_path}" == "." ]]; then
-        path="${PWD}"
-    elif [[ "${raw_path}" == /* ]]; then
-        path="${raw_path}"
-    else
-        path="${PWD}/${raw_path}"
-    fi
-
-    if [[ ! -d "${path}" ]]; then
+# Build the repo-base image (shared foundation).
+validate_docker() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
         return 1
     fi
-
-    path=$(cd "${path}" && pwd)
-    printf '%s' "${path}"
-}
-
-# Derive a safe project image suffix from path.
-derive_project_image_suffix() {
-    local project_path="$1"
-    local parent_name project_name raw_name safe_name
-
-    parent_name="${project_path%/*}"
-    parent_name="${parent_name##*/}"
-    project_name="${project_path##*/}"
-    raw_name="${parent_name}-${project_name}"
-    safe_name=$(printf '%s' "${raw_name}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
-    safe_name=$(printf '%s' "${safe_name}" | sed 's/^[^a-zA-Z0-9]//')
-    if [[ -z "${safe_name}" ]]; then
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not running"
         return 1
     fi
-    printf '%s' "${safe_name}"
 }
 
-# --- Commands ---
 # Build the repo-base image (shared foundation).
 build_stage_repo_base() {
     log_info "Building repo-base image..."

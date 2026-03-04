@@ -31,6 +31,10 @@ readonly DEFAULT_CPUS="4"
 # shellcheck disable=SC1091
 . "${DEVENV_HOME}/shared/bash/log.sh"
 
+# --- Shared Primitives ---
+# shellcheck disable=SC1091
+. "${DEVENV_HOME}/shared/bash/primitives.sh"
+
 # --- Primitives ---
 # Print usage information.
 usage() {
@@ -83,27 +87,6 @@ validate_docker() {
     fi
 }
 
-# Resolve a path argument to a canonical absolute path.
-resolve_project_path() {
-    local raw_path="$1"
-    local path
-
-    if [[ "${raw_path}" == "." ]]; then
-        path="${PWD}"
-    elif [[ "${raw_path}" == /* ]]; then
-        path="${raw_path}"
-    else
-        path="${PWD}/${raw_path}"
-    fi
-
-    if [[ ! -d "${path}" ]]; then
-        return 1
-    fi
-
-    path=$(cd "${path}" && pwd)
-    printf '%s' "${path}"
-}
-
 # Resolve the container-side project path by mirroring host HOME-relative path.
 resolve_container_project_path() {
     local project_path="$1"
@@ -144,23 +127,6 @@ derive_project_label() {
     parent_name="${parent_name##*/}"
     project_name="${project_path##*/}"
     printf '%s' "${parent_name}/${project_name}"
-}
-
-# Derive a safe project image suffix from path.
-derive_project_image_suffix() {
-    local project_path="$1"
-    local parent_name project_name raw_name safe_name
-
-    parent_name="${project_path%/*}"
-    parent_name="${parent_name##*/}"
-    project_name="${project_path##*/}"
-    raw_name="${parent_name}-${project_name}"
-    safe_name=$(printf '%s' "${raw_name}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
-    safe_name=$(printf '%s' "${safe_name}" | sed 's/^[^a-zA-Z0-9]//')
-    if [[ -z "${safe_name}" ]]; then
-        return 1
-    fi
-    printf '%s' "${safe_name}"
 }
 
 # Allocate a free port on localhost using uv run python3.
