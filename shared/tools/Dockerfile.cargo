@@ -11,7 +11,7 @@ USER root
 # Install rustup with cargo to system-wide location
 RUN CARGO_HOME=/usr/local/cargo \
     RUSTUP_HOME=/usr/local/rustup \
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
 
 # Make cargo binaries available system-wide
 ENV PATH="/usr/local/cargo/bin:${PATH}"
