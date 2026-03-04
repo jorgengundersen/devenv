@@ -7,7 +7,15 @@ LABEL tools=true
 
 USER root
 
-# Install opencode
-RUN curl -fsSL https://opencode.ai/install | bash
+# Install opencode and ensure binary is at /usr/local/bin/opencode
+RUN curl -fsSL https://opencode.ai/install | bash \
+    && if [ -f /root/.opencode/bin/opencode ]; then \
+        mv /root/.opencode/bin/opencode /usr/local/bin/opencode; \
+        chmod +x /usr/local/bin/opencode; \
+    elif [ -f /usr/local/bin/opencode ]; then \
+        chmod +x /usr/local/bin/opencode; \
+    else \
+        echo "Error: opencode binary not found after install" >&2; exit 1; \
+    fi
 
 USER devuser
