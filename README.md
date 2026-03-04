@@ -228,7 +228,11 @@ The following host configurations are mounted into containers:
 | neovim | `~/.config/nvim/` | `/home/devuser/.config/nvim/` |
 | starship | `~/.config/starship/` | `/home/devuser/.config/starship/` |
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
+| gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
 | opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode/opencode.jsonc` |
+| opencode | `shared/config/opencode/tui.devenv.jsonc` | `/home/devuser/.config/opencode/tui.jsonc` |
+| opencode | `~/.local/share/opencode/auth.json` | `/home/devuser/.local/share/opencode/auth.json` |
+| ssh | `~/.ssh/authorized_keys` | `/home/devuser/.ssh/authorized_keys` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
