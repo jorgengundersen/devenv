@@ -67,18 +67,6 @@ validate_docker() {
 }
 
 # Build the repo-base image (shared foundation).
-validate_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
-        log_error "Docker is not installed or not in PATH"
-        return 1
-    fi
-    if ! docker info >/dev/null 2>&1; then
-        log_error "Docker daemon is not running"
-        return 1
-    fi
-}
-
-# Build the repo-base image (shared foundation).
 build_stage_repo_base() {
     log_info "Building repo-base image..."
 
