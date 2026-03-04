@@ -1,7 +1,6 @@
 ---
 description: Orchestrates a full project review (specs, standards, docs, verification)
 mode: primary
-model: github-copilot/claude-opus-4.6
 temperature: 0.1
 steps: 25
 permission:
