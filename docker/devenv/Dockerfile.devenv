@@ -158,14 +158,7 @@ USER root
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq
 
-FROM repo-base:latest AS tool_tree_sitter
-USER root
-COPY --from=tool_node /opt/node /opt/node
-RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
-    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
-    && ln -sf /opt/node/bin/npx /usr/local/bin/npx \
-    && /opt/node/bin/npm install -g tree-sitter-cli \
-    && ln -sf /opt/node/bin/tree-sitter /usr/local/bin/tree-sitter
+FROM tools-tree-sitter:latest AS tool_tree_sitter
 
 FROM repo-base:latest AS tool_make
 USER root
