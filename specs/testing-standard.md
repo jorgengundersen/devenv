@@ -94,6 +94,7 @@ tests/
     build_devenv_cli.bats
     install_devenv_cli.bats
     log_primitives.bats
+    shared_primitives.bats
   e2e-human/
     README.md
     devenv_e2e.bats
@@ -134,6 +135,13 @@ run in CI by default.
 - **Argument parsing**: `install`, `uninstall`, unknown commands.
 - **CLI Contract**: Symlink creation, PATH detection, idempotent installs,
   uninstall cleanup.
+
+### For `shared/bash/primitives.sh`:
+
+- **Primitives**: `resolve_project_path`, `derive_project_image_suffix`.
+- **Behavior**: Path resolution (dot, absolute, relative, nonexistent), image
+  suffix derivation (special-char replacement, no leading non-alnum).
+- **Guard**: Sourcing the library twice is idempotent.
 
 ### For `shared/bash/log.sh`:
 
