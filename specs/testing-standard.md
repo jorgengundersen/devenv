@@ -159,7 +159,7 @@ run in CI by default.
 ## References
 
 - [bats-core](https://github.com/bats-core/bats-core) — Bash testing framework.
-- [Testing Trophy](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+- [Testing Trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications)
   — Prioritize signal over cost.
 - [Red-Green-Refactor](https://en.wikipedia.org/wiki/Test-driven_development#Cycle)
   — TDD discipline.
