@@ -111,10 +111,14 @@ devenv/
 ├── README.md                    # This file
 └── shared/
     └── tools/                   # Tool-specific Dockerfiles
+        ├── Dockerfile.bats
+        ├── Dockerfile.beads
         ├── Dockerfile.cargo
         ├── Dockerfile.common-utils
         ├── Dockerfile.copilot-cli
+        ├── Dockerfile.dolt
         ├── Dockerfile.fnm
+        ├── Dockerfile.fzf
         ├── Dockerfile.gh
         ├── Dockerfile.go
         ├── Dockerfile.hadolint
@@ -134,10 +138,14 @@ devenv/
 
 ## Available Tools
 
+- **bats** - Bash Automated Testing System (bats-core)
+- **beads** - Issue tracker (bd CLI, Dolt-backed)
 - **cargo** - Rust toolchain and package manager
 - **common-utils** - Baseline CLI utilities (tree/less/man/file/network tools)
 - **copilot-cli** - GitHub Copilot CLI
+- **dolt** - Version-controlled SQL database
 - **fnm** - Fast Node Manager
+- **fzf** - Fuzzy finder
 - **gh** - GitHub CLI
 - **go** - Go programming language
 - **hadolint** - Dockerfile linter
