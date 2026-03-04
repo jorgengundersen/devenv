@@ -163,12 +163,12 @@ derive_project_image_suffix() {
     printf '%s' "${safe_name}"
 }
 
-# Allocate a free port on localhost using python3.
+# Allocate a free port on localhost using uv run python3.
 allocate_port() {
-    if ! command -v python3 >/dev/null 2>&1; then
+    if ! command -v uv >/dev/null 2>&1; then
         return 1
     fi
-    python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'
+    uv run python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()'
 }
 
 # Check if a container is running.
