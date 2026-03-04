@@ -7,6 +7,6 @@ LABEL tools=true
 
 USER root
 
-RUN bash -c 'curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash'
+RUN bash -c 'curl -fsSL https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash'
 
 USER devuser
