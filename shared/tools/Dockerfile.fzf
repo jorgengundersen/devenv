@@ -11,6 +11,4 @@ RUN git clone --depth 1 https://github.com/junegunn/fzf.git /root/.fzf \
     && cp /root/.fzf/bin/fzf /usr/local/bin/fzf \
     && chmod +x /usr/local/bin/fzf
 
-ENV PATH="/root/.fzf/bin:${PATH}"
-
 USER devuser

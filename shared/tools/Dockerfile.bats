@@ -16,8 +16,8 @@ RUN BATS_VERSION=$(curl -fsSL https://api.github.com/repos/bats-core/bats-core/r
     fi \
     && curl -fsSL "https://github.com/bats-core/bats-core/archive/refs/tags/${BATS_VERSION}.tar.gz" \
         | tar -xz -C /tmp \
-    && /tmp/bats-core-${BATS_VERSION#v}/install.sh /usr/local \
-    && rm -rf /tmp/bats-core-${BATS_VERSION#v} \
+    && "/tmp/bats-core-${BATS_VERSION#v}/install.sh" /usr/local \
+    && rm -rf "/tmp/bats-core-${BATS_VERSION#v}" \
     && chmod +x /usr/local/bin/bats \
     && chown devuser:devuser /usr/local/bin/bats
 
