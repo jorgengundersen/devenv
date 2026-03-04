@@ -12,6 +12,9 @@
 # Per-subcommand output overrides (take precedence over FAKE_DOCKER_OUTPUT):
 #   FAKE_DOCKER_INFO_OUTPUT         Output for: docker info [...]
 #   FAKE_DOCKER_PS_OUTPUT           Output for: docker ps [...]
+#   FAKE_DOCKER_IMAGES_OUTPUT       Output for: docker images [...]
+#   FAKE_DOCKER_RUN_OUTPUT          Output for: docker run [...]
+#   FAKE_DOCKER_EXEC_OUTPUT         Output for: docker exec [...]
 #   FAKE_DOCKER_VOLUME_LS_OUTPUT    Output for: docker volume ls [...]
 #   FAKE_DOCKER_VOLUME_INSPECT_OUTPUT  Output for: docker volume inspect [...]
 #   FAKE_DOCKER_VOLUME_RM_OUTPUT    Output for: docker volume rm [...]
@@ -20,6 +23,9 @@
 # Per-subcommand exit code overrides:
 #   FAKE_DOCKER_INFO_EXIT
 #   FAKE_DOCKER_PS_EXIT
+#   FAKE_DOCKER_IMAGES_EXIT
+#   FAKE_DOCKER_RUN_EXIT
+#   FAKE_DOCKER_EXEC_EXIT
 #   FAKE_DOCKER_VOLUME_LS_EXIT
 #   FAKE_DOCKER_VOLUME_INSPECT_EXIT
 #   FAKE_DOCKER_VOLUME_RM_EXIT
@@ -37,6 +43,7 @@ _subcommand_key=""
 case "${1:-}" in
     info)     _subcommand_key="INFO" ;;
     ps)       _subcommand_key="PS" ;;
+    images)   _subcommand_key="IMAGES" ;;
     run)      _subcommand_key="RUN" ;;
     stop)     _subcommand_key="STOP" ;;
     rm)       _subcommand_key="RM" ;;

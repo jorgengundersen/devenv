@@ -121,6 +121,90 @@ load '../helpers/assert_output.bash'
     }
 }
 
+# ---------------------------------------------------------------------------
+# start / attach (cmd_start)
+# ---------------------------------------------------------------------------
+
+@test "devenv <path>: exits 0 and fake docker received docker run call" {
+    # Create a real project directory under the isolated HOME.
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    # FAKE_DOCKER_IMAGES_OUTPUT: make `docker images` appear to return devenv:latest
+    # so the image-existence check in cmd_start passes.
+    # FAKE_DOCKER_PS_OUTPUT: empty → container not running → start path.
+    # No ~/.ssh/authorized_keys in isolated HOME → ssh_port is skipped.
+    # docker run exits 0 (default), docker exec exits 0 (default, attach is no-op).
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv "${project_dir}"
+
+    assert_exit_code 0
+    [[ -f "${docker_log}" ]] || { echo "docker log not created"; return 1; }
+    grep -q "^run " "${docker_log}" || {
+        echo "Expected 'docker run' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    grep -q "devenv:latest" "${docker_log}" || {
+        echo "Expected image name 'devenv:latest' in docker run call. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv --port 2222 <path>: docker run receives -p flag with port 2222" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    # Create an authorized_keys file so the SSH port code path is active.
+    mkdir -p "${HOME}/.ssh"
+    printf 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 test\n' > "${HOME}/.ssh/authorized_keys"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv --port 2222 "${project_dir}"
+
+    assert_exit_code 0
+    grep -q "2222" "${docker_log}" || {
+        echo "Expected port 2222 in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    grep -q "^run " "${docker_log}" || {
+        echo "Expected 'docker run' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "devenv <path> (container already running): docker exec is called, docker run is not" {
+    local project_dir="${HOME}/projects/myapp"
+    mkdir -p "${project_dir}"
+
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+
+    # Derive the expected container name so we can return it from `docker ps`.
+    # devenv-<parent>-<project> → devenv-projects-myapp
+    local expected_container_name="devenv-projects-myapp"
+
+    # FAKE_DOCKER_PS_OUTPUT: non-empty → is_container_running returns true.
+    FAKE_DOCKER_IMAGES_OUTPUT="devenv:latest" \
+    FAKE_DOCKER_PS_OUTPUT="${expected_container_name}" \
+    DOCKER_LOG="${docker_log}" \
+        run devenv "${project_dir}"
+
+    assert_exit_code 0
+    grep -q "^exec " "${docker_log}" || {
+        echo "Expected 'docker exec' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+    # Ensure docker run was NOT called (re-attach path skips starting a new container).
+    if grep -q "^run " "${docker_log}"; then
+        echo "Did not expect 'docker run' in re-attach path. Got: $(cat "${docker_log}")"; return 1
+    fi
+}
+
 @test "devenv volume rm --all with in-use volume: exits 1 and error mentions mounted by a running container" {
     local docker_log="${BATS_TMPDIR}/docker_calls.log"
     rm -f "${docker_log}"
