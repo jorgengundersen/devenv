@@ -200,16 +200,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pipx \
     && mv /root/.local/bin/mdformat /usr/local/bin/mdformat \
     && chmod +x /usr/local/bin/mdformat
 
-FROM repo-base:latest AS tool_beads
-USER root
-RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash \
-    && if [ -f /root/.local/bin/bd ]; then \
-        mv /root/.local/bin/bd /usr/local/bin/bd; \
-    fi \
-    && chmod +x /usr/local/bin/bd \
-    && ln -sf /usr/local/bin/bd /usr/local/bin/beads \
-    && test -x /usr/local/bin/bd \
-    && test -L /usr/local/bin/beads
+FROM tools-beads:latest AS tool_beads
 
 FROM repo-base:latest AS tool_dolt
 USER root
