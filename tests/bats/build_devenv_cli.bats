@@ -147,3 +147,75 @@ _source_build_devenv() {
         echo "output: ${output}"; return 1
     }
 }
+
+# ---------------------------------------------------------------------------
+# CLI: --force flag
+# ---------------------------------------------------------------------------
+
+@test "build-devenv --force --stage base: exits 0 without error" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    DOCKER_LOG="${docker_log}" run build-devenv --force --stage base
+    assert_exit_code 0
+}
+
+@test "build-devenv --force: sets FORCE_BUILD=true" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    # Source build-devenv to inspect FORCE_BUILD after main() processes --force.
+    # shellcheck disable=SC1091
+    DEVENV_LOG_LEVEL=WARNING DOCKER_LOG="${docker_log}" source "${DEVENV_HOME}/bin/build-devenv"
+    main --force --stage base
+    [[ "${FORCE_BUILD}" == "true" ]] || {
+        echo "Expected FORCE_BUILD=true, got: ${FORCE_BUILD}"; return 1
+    }
+}
+
+@test "build-devenv --force --stage base: passes --no-cache to docker build" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    DOCKER_LOG="${docker_log}" run build-devenv --force --stage base
+    assert_exit_code 0
+    grep -q -- "--no-cache" "${docker_log}" || {
+        echo "Expected '--no-cache' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "build-devenv --force --tool jq: passes --no-cache to docker build" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    DOCKER_LOG="${docker_log}" run build-devenv --force --tool jq
+    assert_exit_code 0
+    grep -q -- "--no-cache" "${docker_log}" || {
+        echo "Expected '--no-cache' in docker log. Got: $(cat "${docker_log}")"; return 1
+    }
+}
+
+@test "build-devenv --force --stage devenv: rebuilds all tool images even when they already exist" {
+    local docker_log="${BATS_TMPDIR}/docker_calls.log"
+    rm -f "${docker_log}"
+    # Simulate all base and tool images already present so the normal (non-force)
+    # path would skip them.  With --force every tool must still be rebuilt.
+    local all_images
+    all_images="$(printf 'repo-base:latest\ndevenv-base:latest\ndevenv:latest\n')"
+    local tool
+    for tool in cargo go fnm uv fzf jq node bun ripgrep \
+                gh nvim opencode copilot-cli starship yq tree-sitter \
+                make shellcheck hadolint mdformat beads dolt bats; do
+        all_images+="tools-${tool}:latest"$'\n'
+    done
+    DOCKER_LOG="${docker_log}" FAKE_DOCKER_IMAGES_OUTPUT="${all_images}" \
+        run build-devenv --force --stage devenv
+    assert_exit_code 0
+    # With --force every tool image must be rebuilt: expect at least one
+    # Dockerfile.* build call per tool in the log.
+    local rebuild_count
+    rebuild_count=$(grep -c "Dockerfile\." "${docker_log}" || true)
+    # There are 23 tools plus devenv-base, repo-base, devenv itself → ≥ 23 tool builds
+    [[ "${rebuild_count}" -ge 23 ]] || {
+        echo "Expected at least 23 Dockerfile.* build calls, got ${rebuild_count}."
+        echo "docker log:"
+        cat "${docker_log}"
+        return 1
+    }
+}
