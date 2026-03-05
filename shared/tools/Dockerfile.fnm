@@ -7,10 +7,6 @@ LABEL tools=true
 
 USER root
 
-# unzip is required by the fnm installer to extract the downloaded archive
-RUN apt-get update && apt-get install -y --no-install-recommends unzip \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install fnm to /usr/local/bin for system-wide access
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin
 

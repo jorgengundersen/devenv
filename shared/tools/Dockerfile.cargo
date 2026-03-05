@@ -8,13 +8,13 @@ LABEL tools=true
 
 USER root
 
-# Install rustup with cargo to system-wide location
-RUN CARGO_HOME=/usr/local/cargo \
+# Set system-wide locations for rustup and cargo
+ENV CARGO_HOME=/usr/local/cargo \
     RUSTUP_HOME=/usr/local/rustup \
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
+    PATH="/usr/local/cargo/bin:${PATH}"
 
-# Make cargo binaries available system-wide
-ENV PATH="/usr/local/cargo/bin:${PATH}"
+# Install rustup with cargo to system-wide location
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --default-toolchain stable
 
 # Change ownership to devuser
 RUN chown -R devuser:devuser /usr/local/cargo /usr/local/rustup

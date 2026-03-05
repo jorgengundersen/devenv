@@ -6,8 +6,6 @@
 FROM repo-base:latest AS tool_fnm_stage
 LABEL tools=true
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends unzip \
-    && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell --install-dir /usr/local/bin \
     && chmod +x /usr/local/bin/fnm \
     && chown devuser:devuser /usr/local/bin/fnm

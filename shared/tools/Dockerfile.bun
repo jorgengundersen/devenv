@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+
+# Tool: bun (JavaScript runtime and package manager)
+
+FROM repo-base:latest AS tool_bun
+LABEL tools=true
+
+USER root
+
+# Install bun to /usr/local/bin for system-wide access
+RUN curl -fsSL https://bun.sh/install | bash \
+    && mv /root/.bun/bin/bun /usr/local/bin/bun \
+    && chmod +x /usr/local/bin/bun \
+    && chown devuser:devuser /usr/local/bin/bun
+
+USER devuser

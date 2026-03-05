@@ -14,7 +14,6 @@ RUN apt-get update \
         less \
         man-db \
         file \
-        unzip \
         zip \
         procps \
         lsof \

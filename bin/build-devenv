@@ -14,6 +14,7 @@ DEVENV_HOME="${DEVENV_HOME:-$(
 )}"
 readonly DEVENV_HOME
 readonly IMAGE_PREFIX="devenv"
+FORCE_BUILD=false
 
 # --- Logging ---
 # shellcheck disable=SC1091
@@ -35,14 +36,16 @@ Options:
     --stage <stage>      Build a stage image
                          Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                         Valid tools: bats, beads, cargo, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
+                          Valid tools: bats, beads, bun, cargo, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
+    --force              Force rebuild even if image already exists (implies --no-cache)
     --help               Show this help message
 
 Examples:
     build-devenv --stage base
     build-devenv --stage devenv-base
     build-devenv --stage devenv
+    build-devenv --stage devenv --force
     build-devenv --tool common-utils
     build-devenv --tool nvim
     build-devenv --project ./my-project
@@ -78,8 +81,13 @@ build_stage_repo_base() {
     local version
     version=$(date +%Y%m%d.%H%M%S)
 
+    local no_cache_flag=""
+    [[ "${FORCE_BUILD}" == "true" ]] && no_cache_flag="--no-cache"
+
     log_info "Building repo-base:${version}..."
+    # shellcheck disable=SC2086
     docker build \
+        ${no_cache_flag} \
         -f "${dockerfile}" \
         -t "repo-base:${version}" \
         -t "repo-base:latest" \
@@ -105,8 +113,13 @@ build_stage_devenv_base() {
     local version
     version=$(date +%Y%m%d.%H%M%S)
 
+    local no_cache_flag=""
+    [[ "${FORCE_BUILD}" == "true" ]] && no_cache_flag="--no-cache"
+
     log_info "Building ${IMAGE_PREFIX}-base:${version}..."
+    # shellcheck disable=SC2086
     docker build \
+        ${no_cache_flag} \
         -f "${dockerfile}" \
         -t "${IMAGE_PREFIX}-base:${version}" \
         -t "${IMAGE_PREFIX}-base:latest" \
@@ -119,7 +132,7 @@ build_stage_devenv_base() {
 # Dependencies must appear before dependents (fnm before node, jq before ripgrep, node before tree-sitter).
 readonly DEVENV_TOOLS=(
     cargo go fnm uv fzf jq
-    node ripgrep
+    node bun ripgrep
     gh nvim opencode copilot-cli starship yq tree-sitter
     make shellcheck hadolint mdformat
     beads dolt bats
@@ -140,9 +153,10 @@ build_stage_devenv() {
     fi
 
     # Ensure all tool images are present before building the devenv image.
+    # With --force, rebuild all tool images to pick up base image changes.
     local tool
     for tool in "${DEVENV_TOOLS[@]}"; do
-        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-${tool}:latest$"; then
+        if [[ "${FORCE_BUILD}" == "true" ]] || ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-${tool}:latest$"; then
             log_info "Tool image tools-${tool}:latest not found, building..."
             build_tool "${tool}"
         fi
@@ -156,8 +170,13 @@ build_stage_devenv() {
     local version
     version=$(date +%Y%m%d.%H%M%S)
 
+    local no_cache_flag=""
+    [[ "${FORCE_BUILD}" == "true" ]] && no_cache_flag="--no-cache"
+
     log_info "Building ${IMAGE_PREFIX}:${version}..."
+    # shellcheck disable=SC2086
     docker build \
+        ${no_cache_flag} \
         -f "${dockerfile}" \
         -t "${IMAGE_PREFIX}:${version}" \
         -t "${IMAGE_PREFIX}:latest" \
@@ -194,8 +213,13 @@ build_tool() {
         fi
     fi
 
+    local no_cache_flag=""
+    [[ "${FORCE_BUILD}" == "true" ]] && no_cache_flag="--no-cache"
+
     log_info "Building tool: ${tool}..."
+    # shellcheck disable=SC2086
     docker build \
+        ${no_cache_flag} \
         -f "${dockerfile}" \
         -t "tools-${tool}:latest" \
         "${DEVENV_HOME}"
@@ -288,6 +312,10 @@ main() {
                     die "--project requires a path argument"
                 fi
                 build_project "$1"
+                shift
+                ;;
+            --force)
+                FORCE_BUILD=true
                 shift
                 ;;
             --help|-h)
