@@ -20,8 +20,10 @@ devenv/
 ├── scripts/
 │   └── install-devenv           # Installation script (creates symlinks)
 ├── docker/
+│   ├── base/
+│   │   └── Dockerfile.base      # Shared repo base image (Ubuntu + devuser + core utilities)
 │   └── devenv/
-│       ├── Dockerfile.base      # Base operating system image
+│       ├── Dockerfile.base      # Devenv base (SSH layer on repo-base)
 │       ├── Dockerfile.devenv    # Complete development environment (base + tools)
 │       └── templates/           # Project-specific Dockerfile templates
 │           ├── Dockerfile.project       # Generic project template
@@ -123,6 +125,17 @@ Every container is assigned a deterministic name derived from the project path, 
 - Configure the base operating system (Ubuntu)
 - Create `devuser` (non-privileged user with matching host UID and GID)
 - Install core utilities required by tool installers
+
+**Installed packages:**
+
+| Package | Purpose |
+|---------|---------|
+| `ca-certificates` | TLS certificate validation for `curl`/`wget` |
+| `curl` | HTTP downloads used by tool installers |
+| `git` | Version control |
+| `sudo` | Privilege escalation for in-container setup |
+| `unzip` | Archive extraction used by tool installers |
+| `wget` | HTTP downloads (alternative to `curl`) |
 
 **Build Arguments:**
 
@@ -459,7 +472,28 @@ A `build-devenv` script coordinates image construction:
 build-devenv --stage <stage>   # Build base, devenv-base, or devenv stage
 build-devenv --tool <tool>     # Build specific tool Dockerfile
 build-devenv --project <path>  # Build project-specific image
+build-devenv --force ...       # Force rebuild; implies --no-cache
 ```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--stage <stage>` | Build a named stage image. Valid stages: `base`, `devenv-base`, `devenv`. |
+| `--tool <tool>` | Build a single tool image from `shared/tools/Dockerfile.<tool>`. |
+| `--project <path>` | Build a project-specific image from `<path>/.devenv/Dockerfile`. |
+| `--force` | Force rebuild even when the target image already exists. Passes `--no-cache` to `docker build`. When combined with `--stage devenv`, also rebuilds all tool images to propagate base image changes. |
+
+**`--force` and cache invalidation:**
+
+Docker layer caching means that tool images built on top of `repo-base:latest` are **not automatically rebuilt** when `repo-base` is updated. Changing `docker/base/Dockerfile.base` (e.g. adding a package) does not invalidate cached tool image layers. To propagate a base image change through the entire stack:
+
+```bash
+build-devenv --force --stage base         # Rebuild repo-base without cache
+build-devenv --force --stage devenv       # Rebuild all tool images + final devenv image
+```
+
+Using `--force` with `--stage devenv` rebuilds every tool image in addition to the final `devenv:latest` image, ensuring all cached layers are discarded.
 
 **Examples:**
 
@@ -467,6 +501,7 @@ build-devenv --project <path>  # Build project-specific image
 build-devenv --stage base # Build docker/base/Dockerfile.base
 build-devenv --stage devenv-base # Build docker/devenv/Dockerfile.base
 build-devenv --stage devenv # Build docker/devenv/Dockerfile.devenv
+build-devenv --stage devenv --force # Force-rebuild all tool images + devenv image
 build-devenv --tool common-utils # Build shared/tools/Dockerfile.common-utils
 build-devenv --tool nvim # Build shared/tools/Dockerfile.nvim
 build-devenv --project ./my-project # Build project/.devenv/Dockerfile

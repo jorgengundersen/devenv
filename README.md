@@ -172,9 +172,22 @@ Build Docker images for the development environment.
 build-devenv --stage base # Build repo base image
 build-devenv --stage devenv-base # Build devenv base image
 build-devenv --stage devenv # Build complete environment
+build-devenv --stage devenv --force # Force-rebuild all tool images + devenv
 build-devenv --tool common-utils # Build common-utils tool image
 build-devenv --tool nvim # Build specific tool
 build-devenv --project ./my-project # Build project-specific image
+```
+
+**`--force` flag:** Forces a rebuild even if the target image already exists and passes
+`--no-cache` to Docker. When combined with `--stage devenv`, every tool image is also
+rebuilt.
+
+This is necessary after changing `docker/base/Dockerfile.base` because Docker's layer
+cache does not automatically invalidate tool images when the base image changes:
+
+```bash
+build-devenv --force --stage base    # Rebuild repo-base without cache
+build-devenv --force --stage devenv  # Rebuild all tools + final devenv image
 ```
 
 ### devenv
