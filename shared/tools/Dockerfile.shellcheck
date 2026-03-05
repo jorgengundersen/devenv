@@ -1,29 +1,23 @@
 # syntax=docker/dockerfile:1
 
 # Tool: shellcheck (shell script linter)
-# Installs latest stable shellcheck release
+# Installs pinned shellcheck release using a predictable URL pattern.
+# Update SHELLCHECK_VERSION when upgrading.
 
 FROM repo-base:latest AS tool_shellcheck
 LABEL tools=true
 
 USER root
 
-RUN apt-get update && apt-get install -y --no-install-recommends xz-utils \
-    && rm -rf /var/lib/apt/lists/*
+ARG SHELLCHECK_VERSION=v0.11.0
 
-RUN SHELLCHECK_URL=$(curl -fsSL https://api.github.com/repos/koalaman/shellcheck/releases/latest | \
-    sed -n 's/.*"browser_download_url": "\(https:[^"]*linux.x86_64.tar.xz\)".*/\1/p' | head -n 1) \
-    && if [ -z "${SHELLCHECK_URL}" ]; then \
-        echo "Unable to resolve shellcheck download URL" >&2; \
-        exit 1; \
-    fi \
-    && SHELLCHECK_ARCHIVE="${SHELLCHECK_URL##*/}" \
-    && SHELLCHECK_DIR="${SHELLCHECK_ARCHIVE%.linux.x86_64.tar.xz}" \
+RUN SHELLCHECK_ARCHIVE="shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.gz" \
+    && SHELLCHECK_URL="https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/${SHELLCHECK_ARCHIVE}" \
     && curl -fsSLO "${SHELLCHECK_URL}" \
-    && tar -xJf "${SHELLCHECK_ARCHIVE}" \
-    && mv "${SHELLCHECK_DIR}/shellcheck" /usr/local/bin/shellcheck \
+    && tar -xzf "${SHELLCHECK_ARCHIVE}" \
+    && mv "shellcheck-${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck \
     && chmod +x /usr/local/bin/shellcheck \
     && chown devuser:devuser /usr/local/bin/shellcheck \
-    && rm -rf "${SHELLCHECK_DIR}" "${SHELLCHECK_ARCHIVE}"
+    && rm -rf "shellcheck-${SHELLCHECK_VERSION}" "${SHELLCHECK_ARCHIVE}"
 
 USER devuser
