@@ -190,6 +190,14 @@ build-devenv --force --stage base    # Rebuild repo-base without cache
 build-devenv --force --stage devenv  # Rebuild all tools + final devenv image
 ```
 
+**Updating beads version:** `shared/tools/Dockerfile.beads` pins beads via
+`ARG BEADS_VERSION=<version>`. Bump that value, then rebuild with:
+
+```bash
+build-devenv --force --tool beads
+build-devenv --force --stage devenv
+```
+
 ### devenv
 
 Launch persistent containerized development environments.

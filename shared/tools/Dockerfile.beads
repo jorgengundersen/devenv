@@ -7,13 +7,25 @@ LABEL tools=true
 
 USER root
 
-RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash \
-    && if [ -f /root/.local/bin/bd ]; then \
-        mv /root/.local/bin/bd /usr/local/bin/bd; \
-    fi \
-    && chmod +x /usr/local/bin/bd \
-    && ln -sf /usr/local/bin/bd /usr/local/bin/beads \
-    && test -x /usr/local/bin/bd \
-    && test -L /usr/local/bin/beads
+ARG BEADS_VERSION=0.59.0
+ARG TARGETOS=linux
+ARG TARGETARCH
+
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+        amd64|arm64|arm) beads_arch="${TARGETARCH}" ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    archive="beads_${BEADS_VERSION}_${TARGETOS}_${beads_arch}.tar.gz"; \
+    download_url="https://github.com/steveyegge/beads/releases/download/v${BEADS_VERSION}/${archive}"; \
+    tmp_dir="$(mktemp -d)"; \
+    curl -fsSL "${download_url}" -o "${tmp_dir}/${archive}"; \
+    tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}"; \
+    install -m 0755 "${tmp_dir}/bd" /usr/local/bin/bd; \
+    ln -sf /usr/local/bin/bd /usr/local/bin/beads; \
+    test -x /usr/local/bin/bd; \
+    test -L /usr/local/bin/beads; \
+    /usr/local/bin/bd version; \
+    rm -rf "${tmp_dir}"
 
 USER devuser
