@@ -5,9 +5,13 @@
 FROM repo-base:latest AS tool_lefthook
 LABEL tools=true
 
+ARG LEFTHOOK_VERSION=2.1.3
+
 USER root
 
-RUN curl -fsSL https://raw.githubusercontent.com/evilmartians/lefthook/master/install.sh | bash -s -- -b /usr/local/bin \
+RUN curl -fsSL "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64.gz" -o /tmp/lefthook.gz \
+    && gzip -dc /tmp/lefthook.gz > /usr/local/bin/lefthook \
+    && rm -f /tmp/lefthook.gz \
     && chmod +x /usr/local/bin/lefthook \
     && chown devuser:devuser /usr/local/bin/lefthook
 
