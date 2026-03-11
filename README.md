@@ -123,6 +123,7 @@ devenv/
         ├── Dockerfile.go
         ├── Dockerfile.hadolint
         ├── Dockerfile.jq
+        ├── Dockerfile.lefthook
         ├── Dockerfile.make
         ├── Dockerfile.mdformat
         ├── Dockerfile.node
@@ -150,6 +151,7 @@ devenv/
 - **go** - Go programming language
 - **hadolint** - Dockerfile linter
 - **jq** - JSON processor
+- **lefthook** - Git hooks manager
 - **make** - GNU make
 - **mdformat** - Markdown formatter
 - **node** - Node.js (via fnm)

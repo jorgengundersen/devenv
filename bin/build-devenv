@@ -36,7 +36,7 @@ Options:
     --stage <stage>      Build a stage image
                          Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                          Valid tools: bats, beads, bun, cargo, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
+                           Valid tools: bats, beads, bun, cargo, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --force              Force rebuild even if image already exists (implies --no-cache)
     --help               Show this help message
@@ -132,7 +132,7 @@ build_stage_devenv_base() {
 # Dependencies must appear before dependents (fnm before node, jq before ripgrep, node before tree-sitter).
 readonly DEVENV_TOOLS=(
     cargo go fnm uv fzf jq
-    node bun ripgrep
+    lefthook node bun ripgrep
     gh nvim opencode copilot-cli starship yq tree-sitter
     make shellcheck hadolint mdformat
     beads dolt bats

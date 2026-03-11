@@ -36,6 +36,8 @@ FROM tools-fzf:latest AS tool_fzf
 
 FROM tools-jq:latest AS tool_jq
 
+FROM tools-lefthook:latest AS tool_lefthook
+
 FROM tools-node:latest AS tool_node
 
 FROM tools-ripgrep:latest AS tool_ripgrep
@@ -86,6 +88,7 @@ COPY --from=tool_uv /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=tool_uv /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=tool_fzf /usr/local/bin/fzf /usr/local/bin/fzf
 COPY --from=tool_jq /usr/local/bin/jq /usr/local/bin/jq
+COPY --from=tool_lefthook /usr/local/bin/lefthook /usr/local/bin/lefthook
 COPY --from=tool_node /usr/local/bin/fnm /usr/local/bin/fnm
 COPY --from=tool_tree_sitter /opt/node /opt/node
 COPY --from=tool_ripgrep /usr/bin/rg /usr/local/bin/rg

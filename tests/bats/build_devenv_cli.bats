@@ -199,7 +199,7 @@ _source_build_devenv() {
     local all_images
     all_images="$(printf 'repo-base:latest\ndevenv-base:latest\ndevenv:latest\n')"
     local tool
-    for tool in cargo go fnm uv fzf jq node bun ripgrep \
+    for tool in cargo go fnm uv fzf jq lefthook node bun ripgrep \
                 gh nvim opencode copilot-cli starship yq tree-sitter \
                 make shellcheck hadolint mdformat beads dolt bats; do
         all_images+="tools-${tool}:latest"$'\n'
@@ -211,9 +211,9 @@ _source_build_devenv() {
     # Dockerfile.* build call per tool in the log.
     local rebuild_count
     rebuild_count=$(grep -c "Dockerfile\." "${docker_log}" || true)
-    # There are 23 tools plus devenv-base, repo-base, devenv itself → ≥ 23 tool builds
-    [[ "${rebuild_count}" -ge 23 ]] || {
-        echo "Expected at least 23 Dockerfile.* build calls, got ${rebuild_count}."
+    # There are 24 tools plus devenv-base, repo-base, devenv itself → >= 24 tool builds
+    [[ "${rebuild_count}" -ge 24 ]] || {
+        echo "Expected at least 24 Dockerfile.* build calls, got ${rebuild_count}."
         echo "docker log:"
         cat "${docker_log}"
         return 1

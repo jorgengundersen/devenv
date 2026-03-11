@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+
+# Tool: lefthook (Git hooks manager)
+
+FROM repo-base:latest AS tool_lefthook
+LABEL tools=true
+
+USER root
+
+RUN curl -fsSL https://raw.githubusercontent.com/evilmartians/lefthook/master/install.sh | bash -s -- -b /usr/local/bin \
+    && chmod +x /usr/local/bin/lefthook \
+    && chown devuser:devuser /usr/local/bin/lefthook
+
+USER devuser
