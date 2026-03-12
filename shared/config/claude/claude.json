@@ -1,0 +1,9 @@
+{
+	"theme": "dark",
+	"hasCompletedOnboarding": true,
+	"projects": {
+		"/": {
+			"hasTrustDialogAccepted": true
+		}
+	}
+}

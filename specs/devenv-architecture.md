@@ -447,6 +447,7 @@ Tool configurations are mounted at container runtime (from host dotfiles and rep
 | gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
 | opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode/opencode.jsonc` |
 | claude-code | `~/.claude/.credentials.json` | `/home/devuser/.claude/.credentials.json` |
+| claude-code | `shared/config/claude/settings.json` | `/home/devuser/.claude/settings.json` |
 | claude-code | `~/.claude.json` | `/home/devuser/.claude.json` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
@@ -455,6 +456,8 @@ Tool configurations are mounted at container runtime (from host dotfiles and rep
 `OPENCODE_CONFIG` defaults to `/home/devuser/.config/opencode/opencode.jsonc` in the runtime environment only when `OPENCODE_CONFIG` is not already set.
 
 `~/.config/opencode/` from the host is not mounted; opencode config is provided from `shared/config/opencode/opencode.devenv.jsonc`.
+
+`~/.claude/settings.json` from the host is not mounted; claude-code settings are provided from `shared/config/claude/settings.json`.
 
 ### Git Configuration
 

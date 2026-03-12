@@ -141,11 +141,18 @@ RUN mkdir -p /home/devuser/.cache \
     /home/devuser/.local/share/opencode/log \
     /home/devuser/.local/state
 
+# Seed ~/.claude.json with UI preferences (theme, onboarding state) so Claude
+# never prompts for these on startup. Sourced from shared/config/claude/ so
+# it is version-controlled and easy to update. Auth credentials are injected
+# at runtime via a host bind-mount and are never stored in the image.
+COPY shared/config/claude/claude.json /home/devuser/.claude.json
+
 # Provide common env file locations referenced by host dotfiles
 RUN mkdir -p /home/devuser/.cargo \
     && ln -sf /usr/local/cargo/env /home/devuser/.cargo/env \
     && touch /home/devuser/.local/bin/env \
-    && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local /home/devuser/.cache /home/devuser/.claude /home/devuser/.config
+    && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local /home/devuser/.cache /home/devuser/.claude /home/devuser/.config \
+    && chown devuser:devuser /home/devuser/.claude.json
 
 # Change ownership to devuser - only chown the binaries and top-level dirs
 RUN chown -R devuser:devuser /usr/local/bin \

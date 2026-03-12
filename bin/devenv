@@ -159,6 +159,8 @@ build_mounts() {
     local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
     local opencode_tui_config_host="${DEVENV_HOME}/shared/config/opencode/tui.devenv.jsonc"
     local opencode_tui_config_container="/home/devuser/.config/opencode/tui.jsonc"
+    local claude_settings_host="${DEVENV_HOME}/shared/config/claude/settings.json"
+    local claude_settings_container="/home/devuser/.claude/settings.json"
 
     mounts_ref=()
     container_project_path=$(resolve_container_project_path "${project_path}")
@@ -216,9 +218,10 @@ build_mounts() {
     if [[ -f "${HOME}/.claude/.credentials.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:ro")
     fi
-    if [[ -f "${HOME}/.claude.json" ]]; then
-        mounts_ref+=("-v" "${HOME}/.claude.json:/home/devuser/.claude.json:ro")
+    if [[ -f "${claude_settings_host}" ]]; then
+        mounts_ref+=("-v" "${claude_settings_host}:${claude_settings_container}:ro")
     fi
+
     if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
         mounts_ref+=("-v" "${SSH_AUTH_SOCK}:/ssh-agent:ro")
     fi

@@ -260,6 +260,7 @@ The following host configurations are mounted into containers:
 | opencode | `shared/config/opencode/tui.devenv.jsonc` | `/home/devuser/.config/opencode/tui.jsonc` |
 | opencode | `~/.local/share/opencode/auth.json` | `/home/devuser/.local/share/opencode/auth.json` |
 | claude-code | `~/.claude/.credentials.json` | `/home/devuser/.claude/.credentials.json` |
+| claude-code | `shared/config/claude/settings.json` | `/home/devuser/.claude/settings.json` |
 | claude-code | `~/.claude.json` | `/home/devuser/.claude.json` |
 | ssh | `~/.ssh/authorized_keys` | `/home/devuser/.ssh/authorized_keys` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
@@ -268,7 +269,7 @@ The following host configurations are mounted into containers:
 
 For `opencode`, devenv uses the repository config file `shared/config/opencode/opencode.devenv.jsonc` and bind-mounts it read-only to `/home/devuser/.config/opencode/opencode.jsonc`. The host directory `~/.config/opencode/` is not mounted. When `OPENCODE_CONFIG` is not set, it defaults to `/home/devuser/.config/opencode/opencode.jsonc`.
 
-For `claude-code`, authenticate on the host first (for example, run `claude auth login`), then start `devenv` so `~/.claude/.credentials.json` and `~/.claude.json` are mounted read-only into the container.
+For `claude-code`, devenv uses the repository config file `shared/config/claude/settings.json` and bind-mounts it read-only to `/home/devuser/.claude/settings.json`. Authenticate on the host first (for example, run `claude auth login`), then start `devenv` so `~/.claude/.credentials.json` and `~/.claude.json` are also mounted read-only into the container.
 
 ## Persistent Volumes
 
