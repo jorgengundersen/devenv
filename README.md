@@ -239,6 +239,8 @@ USER devuser
 
 See `docker/devenv/templates/` for examples.
 
+Detailed setup guide: `docs/how-to-project-specific-dependencies.md`.
+
 ## Configuration Mount Points
 
 The following host configurations are mounted into containers:
