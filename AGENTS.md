@@ -108,7 +108,7 @@ For more details, see README.md.
    ```bash
    git pull --rebase
    # Sync Dolt only when a Dolt remote is configured
-   if [ -n "$(bd dolt remote list 2>/dev/null)" ]; then
+   if ! bd dolt remote list 2>/dev/null | grep -q "No remotes configured."; then
      bd dolt pull
      bd dolt push
    fi
