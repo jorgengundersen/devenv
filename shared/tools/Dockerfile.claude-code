@@ -1,0 +1,24 @@
+# syntax=docker/dockerfile:1
+
+# Tool: claude-code (Anthropic Claude Code CLI)
+# Depends on node tool image
+
+FROM tools-node:latest AS tool_node
+
+FROM repo-base:latest AS tool_claude-code
+LABEL tools=true
+
+USER root
+
+COPY --from=tool_node /opt/node /opt/node
+
+RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
+    && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx \
+    && /opt/node/bin/npm install -g @anthropic-ai/claude-code \
+    && ln -sf /opt/node/bin/claude /usr/local/bin/claude \
+    && /usr/local/bin/claude --version
+
+RUN chown -R devuser:devuser /opt/node /usr/local/bin/claude
+
+USER devuser

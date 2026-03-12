@@ -114,6 +114,7 @@ devenv/
         ├── Dockerfile.bats
         ├── Dockerfile.beads
         ├── Dockerfile.cargo
+        ├── Dockerfile.claude-code
         ├── Dockerfile.common-utils
         ├── Dockerfile.copilot-cli
         ├── Dockerfile.dolt
@@ -142,6 +143,7 @@ devenv/
 - **bats** - Bash Automated Testing System (bats-core)
 - **beads** - Issue tracker (bd CLI, Dolt-backed)
 - **cargo** - Rust toolchain and package manager
+- **claude-code** - Anthropic Claude Code CLI
 - **common-utils** - Baseline CLI utilities (tree/less/man/file/network tools)
 - **copilot-cli** - GitHub Copilot CLI
 - **dolt** - Version-controlled SQL database
@@ -257,12 +259,16 @@ The following host configurations are mounted into containers:
 | opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode/opencode.jsonc` |
 | opencode | `shared/config/opencode/tui.devenv.jsonc` | `/home/devuser/.config/opencode/tui.jsonc` |
 | opencode | `~/.local/share/opencode/auth.json` | `/home/devuser/.local/share/opencode/auth.json` |
+| claude-code | `~/.claude/.credentials.json` | `/home/devuser/.claude/.credentials.json` |
+| claude-code | `~/.claude.json` | `/home/devuser/.claude.json` |
 | ssh | `~/.ssh/authorized_keys` | `/home/devuser/.ssh/authorized_keys` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
 
 For `opencode`, devenv uses the repository config file `shared/config/opencode/opencode.devenv.jsonc` and bind-mounts it read-only to `/home/devuser/.config/opencode/opencode.jsonc`. The host directory `~/.config/opencode/` is not mounted. When `OPENCODE_CONFIG` is not set, it defaults to `/home/devuser/.config/opencode/opencode.jsonc`.
+
+For `claude-code`, authenticate on the host first (for example, run `claude auth login`), then start `devenv` so `~/.claude/.credentials.json` and `~/.claude.json` are mounted read-only into the container.
 
 ## Persistent Volumes
 

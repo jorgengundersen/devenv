@@ -32,6 +32,7 @@ devenv/
 ├── shared/
 │   └── tools/                   # Tool-specific Dockerfiles
 │       ├── Dockerfile.cargo
+│       ├── Dockerfile.claude-code
 │       ├── Dockerfile.common-utils
 │       ├── Dockerfile.copilot-cli
 │       ├── Dockerfile.fnm
@@ -173,7 +174,7 @@ Tools must be built in dependency order:
 
 1. **Stage 1 (Base):** `base` — Foundation image with OS and user setup
 2. **Stage 2 (Runtimes & Build Tools):** `cargo`, `go`, `fnm`, `uv`, `jq` — Language runtimes and essential build tools (can be parallel)
-3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
+3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `claude-code` (depends on `node`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
 4. **Stage 4 (Standalone):** `common-utils`, `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf`, `make`, `shellcheck`, `hadolint`, `mdformat` — Independent tools (can be parallel)
 
 Note: `common-utils` is also built as part of `docker/devenv/Dockerfile.devenv` as the `common_utils` intermediate stage. The `--tool common-utils` build target produces a standalone tool image for isolated testing.
@@ -191,6 +192,7 @@ Required runtime dependencies:
 | Tool | Dependencies | Artifacts to Copy |
 |------|--------------|-------------------|
 | `node` | `fnm` | `/usr/local/bin/fnm` binary |
+| `claude-code` | `node` | `/opt/node` runtime |
 | `tree-sitter` | `node` | `/opt/node` runtime |
 | `ripgrep` | `jq` | `/usr/local/bin/jq` |
 
@@ -370,6 +372,12 @@ tar -C /opt -xzf nvim-linux-x86_64.tar.gz
 curl -fsSL https://opencode.ai/install | bash
 ```
 
+### claude-code
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
 ### copilot-cli
 
 ```bash
@@ -438,6 +446,8 @@ Tool configurations are mounted at container runtime (from host dotfiles and rep
 | gh | `~/.config/gh/` | `/home/devuser/.config/gh/` |
 | gh-copilot | `~/.config/gh-copilot/` | `/home/devuser/.config/gh-copilot/` |
 | opencode | `shared/config/opencode/opencode.devenv.jsonc` | `/home/devuser/.config/opencode/opencode.jsonc` |
+| claude-code | `~/.claude/.credentials.json` | `/home/devuser/.claude/.credentials.json` |
+| claude-code | `~/.claude.json` | `/home/devuser/.claude.json` |
 | git | `~/.gitconfig` | `/home/devuser/.gitconfig` |
 | git | `~/.gitconfig-*` | `/home/devuser/.gitconfig-*` |
 | git | `~/.config/git/config` | `/home/devuser/.config/git/config` |
@@ -637,6 +647,8 @@ docker run -d --rm \
   -v "$HOME/.config/gh/:/home/devuser/.config/gh/:ro" \
     -v "$DEVENV_HOME/shared/config/opencode/opencode.devenv.jsonc:/home/devuser/.config/opencode/opencode.jsonc:ro" \
     -v "$HOME/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro" \
+    -v "$HOME/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:ro" \
+    -v "$HOME/.claude.json:/home/devuser/.claude.json:ro" \
   -v "$HOME/.gitconfig:/home/devuser/.gitconfig:ro" \
   -v "$HOME/.gitconfig-*:/home/devuser/.gitconfig-*:ro" \
   -v "$HOME/.config/git/config:/home/devuser/.config/git/config:ro" \
@@ -676,6 +688,7 @@ docker exec -it --workdir /home/devuser/<relative_project_path> devenv-<parent>-
 | `-v` (git) | Mount git config files from host (read-only) |
 | `-v` (volumes) | Persistent named volumes for XDG data, cache, and state |
 | `-v` (opencode auth) | Mount host opencode auth file (read-only) |
+| `-v` (claude-code auth) | Mount host claude-code auth files (read-only) |
 | `-v` (ssh-agent) | Forward host SSH agent for key access |
 | `-v` (authorized_keys) | Mount SSH authorized keys for sshd |
 | `-e SSH_AUTH_SOCK` | Point container to forwarded SSH agent |

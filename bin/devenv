@@ -213,6 +213,12 @@ build_mounts() {
     if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
     fi
+    if [[ -f "${HOME}/.claude/.credentials.json" ]]; then
+        mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:ro")
+    fi
+    if [[ -f "${HOME}/.claude.json" ]]; then
+        mounts_ref+=("-v" "${HOME}/.claude.json:/home/devuser/.claude.json:ro")
+    fi
     if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
         mounts_ref+=("-v" "${SSH_AUTH_SOCK}:/ssh-agent:ro")
     fi

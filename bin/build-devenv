@@ -36,7 +36,7 @@ Options:
     --stage <stage>      Build a stage image
                          Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                           Valid tools: bats, beads, bun, cargo, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
+                            Valid tools: bats, beads, bun, cargo, claude-code, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --force              Force rebuild even if image already exists (implies --no-cache)
     --help               Show this help message
@@ -133,7 +133,7 @@ build_stage_devenv_base() {
 readonly DEVENV_TOOLS=(
     cargo go fnm uv fzf jq
     lefthook node bun ripgrep
-    gh nvim opencode copilot-cli starship yq tree-sitter
+    gh nvim opencode claude-code copilot-cli starship yq tree-sitter
     make shellcheck hadolint mdformat
     beads dolt bats
 )
@@ -200,6 +200,13 @@ build_tool() {
     fi
 
     if [[ "${tool}" == "tree-sitter" ]]; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-node:latest$"; then
+            log_info "Node tool image not found, building first..."
+            build_tool "node"
+        fi
+    fi
+
+    if [[ "${tool}" == "claude-code" ]]; then
         if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-node:latest$"; then
             log_info "Node tool image not found, building first..."
             build_tool "node"
