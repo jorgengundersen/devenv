@@ -6,6 +6,7 @@
         "bash": {
             "*": "allow",
             "gh *": "deny",
+			"git push -f":"deny",
             "git push --force": "deny",
             "git push --force-with-lease": "deny"
         }
