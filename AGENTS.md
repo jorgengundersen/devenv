@@ -107,7 +107,11 @@ For more details, see README.md.
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   # Sync Dolt only when a Dolt remote is configured
+   if [ -n "$(bd dolt remote list 2>/dev/null)" ]; then
+     bd dolt pull
+     bd dolt push
+   fi
    git push
    git status  # MUST show "up to date with origin"
    ```

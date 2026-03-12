@@ -2,5 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "devenv"
+  "dolt_database": "devenv",
+  "project_id": "0b8be34b-33bf-4f28-8b6c-ba4ea1b565b1"
 }
