@@ -1,18 +1,15 @@
 {
 	"$schema": "https://json.schemastore.org/claude-code-settings.json",
+	"skipDangerousModePermissionPrompt": true,
 	"env": {
 		"DISABLE_AUTOUPDATER": "1"
 	},
+	"attribution": {
+		"commit": "",
+		"pr": ""
+	},
 	"permissions": {
-		"defaultMode": "acceptEdits",
-		"allow": [
-			"Bash",
-			"Read",
-			"Edit",
-			"Write",
-			"WebFetch",
-			"Agent"
-		],
+		"defaultMode": "bypassPermissions",
 		"deny": [
 			"Bash(gh)",
 			"Bash(gh *)",
@@ -23,7 +20,16 @@
 			"Bash(git push --force-with-lease)",
 			"Bash(git push --force-with-lease *)",
 			"Bash(git push --force-if-includes)",
-			"Bash(git push --force-if-includes *)"
+			"Bash(git push --force-if-includes *)",
+			"Bash(git push * -f)",
+			"Bash(git push * -f *)",
+			"Bash(git push * --force)",
+			"Bash(git push * --force *)",
+			"Bash(git push * --force-with-lease)",
+			"Bash(git push * --force-with-lease *)",
+			"Bash(git push * --force-if-includes)",
+			"Bash(git push * --force-if-includes *)",
+			"Bash(git push * +*)"
 		]
 	}
 }

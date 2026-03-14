@@ -10,5 +10,6 @@ This directory contains the authoritative specifications for devenv.
 - [specs/headless-exec.md](specs/headless-exec.md) - headless command execution in devenv containers
 - [specs/dolt-server-lifecycle.md](specs/dolt-server-lifecycle.md) - Dolt server lifecycle management for multi-agent beads access
 - [specs/testing-standard.md](specs/testing-standard.md) - testing trophy approach, bats-core framework, test layout and acceptance criteria
+- [specs/agent-permissions.md](specs/agent-permissions.md) - agent harness permissions policy: full autonomy, deny list, no prompts
 
 Related planning and research documents live in `plans`.
