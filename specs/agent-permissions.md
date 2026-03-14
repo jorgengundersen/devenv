@@ -85,9 +85,12 @@ This is non-negotiable. An agent whose internal dialog is hidden is a black box.
 
 ### Harness-Specific Notes
 
-- **Claude Code:** Enable extended thinking in `settings.json` so reasoning traces are visible in the terminal.
+- **Claude Code:** Press `Ctrl+O` to toggle verbose mode, which displays reasoning traces as gray italic text in the terminal. This is the only way to make internal dialog visible — it is a per-session operator toggle and cannot be set persistently in `settings.json`.
+
+  > **Important distinction:** `alwaysThinkingEnabled` in `settings.json` is **not** a visibility setting. It makes Claude allocate more tokens for internal reasoning before responding (harder thinking, higher cost). It does not surface that reasoning in the terminal. Do **not** enable it expecting to see internal dialog — use `Ctrl+O` for that. `alwaysThinkingEnabled` is explicitly **not** set in devenv's Claude Code config.
+
 - **OpenCode:** Set `logLevel` to `DEBUG` to surface internal dialog.
-- **Future harnesses:** Enable the most transparent output mode the harness supports. The operator must see why the agent is doing what it is doing.
+- **Future harnesses:** Enable the most transparent output mode the harness supports. The operator must see why the agent is doing what it is doing. Verify the mechanism: some harnesses have separate controls for reasoning depth vs. reasoning visibility — only the visibility control satisfies this requirement.
 
 ---
 
@@ -120,7 +123,7 @@ Config files: `shared/config/claude/settings.json`, `shared/config/claude/claude
 - `hasCompletedOnboarding` is `true`.
 - `hasTrustDialogAccepted` is `true` for the root project.
 - Auto-updater is disabled via `DISABLE_AUTOUPDATER=1`.
-- Extended thinking is enabled so reasoning traces are visible to the operator.
+- `alwaysThinkingEnabled` is **not set** — this controls reasoning depth (token cost), not visibility. See §4 for how to enable visible internal dialog (`Ctrl+O`).
 
 ### 6.2 OpenCode
 
