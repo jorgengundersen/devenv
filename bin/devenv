@@ -213,10 +213,10 @@ build_mounts() {
         mounts_ref+=("-v" "${opencode_tui_config_host}:${opencode_tui_config_container}:ro")
     fi
     if [[ -f "${HOME}/.local/share/opencode/auth.json" ]]; then
-        mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:ro")
+        mounts_ref+=("-v" "${HOME}/.local/share/opencode/auth.json:/home/devuser/.local/share/opencode/auth.json:rw")
     fi
     if [[ -f "${HOME}/.claude/.credentials.json" ]]; then
-        mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:ro")
+        mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:rw")
     fi
     if [[ -f "${claude_settings_host}" ]]; then
         mounts_ref+=("-v" "${claude_settings_host}:${claude_settings_container}:ro")
