@@ -159,6 +159,7 @@ build_mounts() {
     local opencode_config_container="/home/devuser/.config/opencode/opencode.jsonc"
     local opencode_tui_config_host="${DEVENV_HOME}/shared/config/opencode/tui.devenv.jsonc"
     local opencode_tui_config_container="/home/devuser/.config/opencode/tui.jsonc"
+    local claude_json_host="${DEVENV_HOME}/shared/config/claude/claude.json"
     local claude_settings_host="${DEVENV_HOME}/shared/config/claude/settings.json"
     local claude_settings_container="/home/devuser/.claude/settings.json"
 
@@ -217,6 +218,9 @@ build_mounts() {
     fi
     if [[ -f "${HOME}/.claude/.credentials.json" ]]; then
         mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:rw")
+    fi
+    if [[ -f "${claude_json_host}" ]]; then
+        mounts_ref+=("-v" "${claude_json_host}:/home/devuser/.claude.json:ro")
     fi
     if [[ -f "${claude_settings_host}" ]]; then
         mounts_ref+=("-v" "${claude_settings_host}:${claude_settings_container}:ro")
