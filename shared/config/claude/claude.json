@@ -1,9 +1,358 @@
 {
-	"theme": "dark",
-	"hasCompletedOnboarding": true,
-	"projects": {
-		"/": {
-			"hasTrustDialogAccepted": true
-		}
-	}
+  "numStartups": 18,
+  "tipsHistory": {
+    "new-user-warmup": 6,
+    "plan-mode-for-complex-tasks": 12,
+    "terminal-setup": 12,
+    "memory-command": 18,
+    "theme-command": 2,
+    "colorterm-truecolor": 2,
+    "status-line": 2,
+    "prompt-queue": 18,
+    "color-when-multi-clauding": 13,
+    "enter-to-steer-in-relatime": 3,
+    "todo-list": 3,
+    "install-github-app": 13,
+    "install-slack-app": 15,
+    "drag-and-drop-images": 15,
+    "double-esc-code-restore": 18,
+    "continue": 18,
+    "shift-tab": 18,
+    "image-paste": 5,
+    "custom-agents": 6,
+    "agent-flag": 6,
+    "desktop-app": 6,
+    "web-app": 6,
+    "mobile-app": 6,
+    "feedback-command": 6,
+    "permissions": 11,
+    "rename-conversation": 11,
+    "custom-commands": 12
+  },
+  "cachedGrowthBookFeatures": {
+    "tengu_kairos_cron": true,
+    "tengu_herring_clock": false,
+    "tengu_orchid_trellis": false,
+    "tengu_keybinding_customization_release": true,
+    "tengu_marble_whisper2": true,
+    "tengu_thinkback": false,
+    "tengu_event_sampling_config": {},
+    "tengu_frond_boric": {},
+    "tengu_log_segment_events": false,
+    "tengu_log_datadog_events": true,
+    "tengu_cobalt_compass": true,
+    "tengu_miraculo_the_bard": false,
+    "tengu_quiet_hollow": true,
+    "tengu_marble_anvil": true,
+    "tengu_tool_pear": false,
+    "tengu_scarf_coffee": false,
+    "tengu_chomp_inflection": false,
+    "tengu_streaming_text": true,
+    "tengu_hawthorn_steeple": false,
+    "tengu-top-of-feed-tip": {
+      "tip": "",
+      "color": ""
+    },
+    "tengu_turtle_carbon": true,
+    "tengu_grey_step2": {
+      "enabled": true,
+      "dialogTitle": "We recommend medium effort for Opus",
+      "dialogDescription": "Effort determines how long Claude thinks for when completing your task. We recommend medium effort for most tasks to balance speed and intelligence and maximize rate limits. Use ultrathink to trigger high effort when needed."
+    },
+    "tengu_pr_status_cli": true,
+    "tengu_ccr_bridge": true,
+    "tengu_disable_bypass_permissions_mode": false,
+    "tengu_post_compact_survey": false,
+    "tengu_desktop_upsell": {
+      "enable_shortcut_tip": false,
+      "enable_startup_dialog": false
+    },
+    "tengu_claudeai_mcp_connectors": true,
+    "tengu_glacier_2xr": false,
+    "tengu_swinburne_dune": true,
+    "tengu_scratch": false,
+    "tengu_auto_mode_config": {
+      "enabled": "disabled",
+      "twoStageClassifier": true
+    },
+    "tengu_1p_event_batch_config": {
+      "scheduledDelayMillis": 10000,
+      "maxExportBatchSize": 400,
+      "maxQueueSize": 8192,
+      "path": "/api/event_logging/v2/batch"
+    },
+    "tengu_grey_wool": true,
+    "tengu_pebble_leaf_prune": false,
+    "tengu_passport_quail": false,
+    "tengu_coral_fern": false,
+    "tengu_bergotte_lantern": false,
+    "tengu_sotto_voce": true,
+    "tengu_system_prompt_global_cache": true,
+    "tengu_streaming_tool_execution2": true,
+    "tengu_moth_copse": false,
+    "tengu_tool_search_unsupported_models": [
+      "haiku"
+    ],
+    "tengu_defer_all_bn4": false,
+    "tengu_chair_sermon": false,
+    "tengu_attribution_header": true,
+    "tengu_prompt_cache_1h_config": {
+      "allowlist": [
+        "repl_main_thread*",
+        "sdk",
+        "auto_mode"
+      ]
+    },
+    "tengu_session_memory": false,
+    "tengu_pid_based_version_locking": true,
+    "tengu_pewter_gull": false,
+    "tengu_immediate_model_command": false,
+    "tengu_plum_vx3": true,
+    "tengu_copper_wren": false,
+    "tengu_amber_wren": {
+      "targetedRangeNudge": true
+    },
+    "tengu_mcp_elicitation": true
+  },
+  "hasCompletedOnboarding": true,
+  "projects": {
+    "/": {
+      "hasTrustDialogAccepted": true
+    },
+    "/home/devuser/Repos/github.com/jorgengundersen/devenv": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": false,
+      "projectOnboardingSeenCount": 1,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "exampleFiles": [
+        "backup_state.json",
+        "Dockerfile.devenv",
+        "build-devenv",
+        "devenv-architecture.md",
+        "AGENTS.md"
+      ],
+      "exampleFilesGeneratedAt": 1773579248630
+    },
+    "/home/devuser/Repos/github.com/jorgengundersen/afk": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": false,
+      "projectOnboardingSeenCount": 0,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "exampleFiles": [
+        "main.go",
+        "contracts.md",
+        "loop.go",
+        "cli.go",
+        "harness.go"
+      ],
+      "exampleFilesGeneratedAt": 1773580198262,
+      "lastCost": 2.3102973999999996,
+      "lastAPIDuration": 581535,
+      "lastAPIDurationWithoutRetries": 581502,
+      "lastToolDuration": 355956,
+      "lastDuration": 91698320,
+      "lastLinesAdded": 31,
+      "lastLinesRemoved": 0,
+      "lastTotalInputTokens": 193318,
+      "lastTotalOutputTokens": 33167,
+      "lastTotalCacheCreationInputTokens": 119724,
+      "lastTotalCacheReadInputTokens": 2702612,
+      "lastTotalWebSearchRequests": 0,
+      "lastFpsAverage": 1.43,
+      "lastFpsLow1Pct": 279.79,
+      "lastModelUsage": {
+        "claude-opus-4-6[1m]": {
+          "inputTokens": 1340,
+          "outputTokens": 17735,
+          "cacheReadInputTokens": 2142958,
+          "cacheCreationInputTokens": 62797,
+          "webSearchRequests": 0,
+          "costUSD": 1.9140352500000006
+        },
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 191978,
+          "outputTokens": 15432,
+          "cacheReadInputTokens": 559654,
+          "cacheCreationInputTokens": 56927,
+          "webSearchRequests": 0,
+          "costUSD": 0.3962621499999999
+        }
+      },
+      "lastSessionId": "73511e5c-50c6-460e-b866-db07bb15ad74",
+      "lastSessionMetrics": {
+        "frame_duration_ms_count": 10995,
+        "frame_duration_ms_min": 0.06167000002460554,
+        "frame_duration_ms_max": 31.77782000042498,
+        "frame_duration_ms_avg": 0.9157872009104004,
+        "frame_duration_ms_p50": 0.6895020000520162,
+        "frame_duration_ms_p95": 2.195574950019361,
+        "frame_duration_ms_p99": 4.239724390052141,
+        "pre_tool_hook_duration_ms_count": 106,
+        "pre_tool_hook_duration_ms_min": 0,
+        "pre_tool_hook_duration_ms_max": 1,
+        "pre_tool_hook_duration_ms_avg": 0.1320754716981132,
+        "pre_tool_hook_duration_ms_p50": 0,
+        "pre_tool_hook_duration_ms_p95": 1,
+        "pre_tool_hook_duration_ms_p99": 1,
+        "hook_duration_ms_count": 33,
+        "hook_duration_ms_min": 0,
+        "hook_duration_ms_max": 1,
+        "hook_duration_ms_avg": 0.12121212121212122,
+        "hook_duration_ms_p50": 0,
+        "hook_duration_ms_p95": 1,
+        "hook_duration_ms_p99": 1
+      }
+    },
+    "/home/devuser/Repos/github.com/jorgengundersen/monarch": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": false,
+      "projectOnboardingSeenCount": 0,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "exampleFiles": [],
+      "lastCost": 0.41997474999999995,
+      "lastAPIDuration": 96290,
+      "lastAPIDurationWithoutRetries": 96286,
+      "lastToolDuration": 175,
+      "lastDuration": 92213487,
+      "lastLinesAdded": 218,
+      "lastLinesRemoved": 0,
+      "lastTotalInputTokens": 14,
+      "lastTotalOutputTokens": 3617,
+      "lastTotalCacheCreationInputTokens": 38331,
+      "lastTotalCacheReadInputTokens": 179822,
+      "lastTotalWebSearchRequests": 0,
+      "lastFpsAverage": 0.05,
+      "lastFpsLow1Pct": 265.61,
+      "lastModelUsage": {
+        "claude-opus-4-6[1m]": {
+          "inputTokens": 14,
+          "outputTokens": 3617,
+          "cacheReadInputTokens": 179822,
+          "cacheCreationInputTokens": 38331,
+          "webSearchRequests": 0,
+          "costUSD": 0.41997474999999995
+        }
+      },
+      "lastSessionId": "0571484a-fae3-405a-b5f4-bcff95369261",
+      "lastSessionMetrics": {
+        "frame_duration_ms_count": 1318,
+        "frame_duration_ms_min": 0.08761799999047071,
+        "frame_duration_ms_max": 16.977037999778986,
+        "frame_duration_ms_avg": 0.5699151904373868,
+        "frame_duration_ms_p50": 0.4085854999939329,
+        "frame_duration_ms_p95": 1.3118321499976446,
+        "frame_duration_ms_p99": 3.7183443099974793,
+        "pre_tool_hook_duration_ms_count": 3,
+        "pre_tool_hook_duration_ms_min": 0,
+        "pre_tool_hook_duration_ms_max": 0,
+        "pre_tool_hook_duration_ms_avg": 0,
+        "pre_tool_hook_duration_ms_p50": 0,
+        "pre_tool_hook_duration_ms_p95": 0,
+        "pre_tool_hook_duration_ms_p99": 0,
+        "hook_duration_ms_count": 2,
+        "hook_duration_ms_min": 0,
+        "hook_duration_ms_max": 1,
+        "hook_duration_ms_avg": 0.5,
+        "hook_duration_ms_p50": 0.5,
+        "hook_duration_ms_p95": 0.95,
+        "hook_duration_ms_p99": 0.99
+      }
+    },
+    "/home/devuser/Repos/github.com/jorgengundersen/omni.wezterm": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": false,
+      "projectOnboardingSeenCount": 0,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "exampleFiles": [
+        "wezterm_stub.lua",
+        "init_spec.lua",
+        "git_repos.lua",
+        "plugin-architecture.md",
+        "git_repos_spec.lua"
+      ],
+      "exampleFilesGeneratedAt": 1773581721951,
+      "hasCompletedProjectOnboarding": true
+    }
+  },
+  "firstStartTime": "2026-03-15T12:54:08.080Z",
+  "opusProMigrationComplete": true,
+  "sonnet1m45MigrationComplete": true,
+  "userID": "9c33c41f40fcef8332ba4231341c2e04659c00b7095dd894d92724fccd3ce532",
+  "effortCalloutV2Dismissed": true,
+  "voiceNoticeSeenCount": 3,
+  "lastReleaseNotesSeen": "2.1.76",
+  "githubRepoPaths": {
+    "jorgengundersen/devenv": [
+      "/home/devuser/Repos/github.com/jorgengundersen/devenv"
+    ],
+    "jorgengundersen/monarch": [
+      "/home/devuser/Repos/github.com/jorgengundersen/monarch"
+    ],
+    "jorgengundersen/afk": [
+      "/home/devuser/Repos/github.com/jorgengundersen/afk"
+    ],
+    "jorgengundersen/omni.wezterm": [
+      "/home/devuser/Repos/github.com/jorgengundersen/omni.wezterm"
+    ]
+  },
+  "clientDataCache": {
+    "data": {},
+    "timestamp": 1773579248601
+  },
+  "changelogLastFetched": 1773825087243,
+  "oauthAccount": {
+    "accountUuid": "d63a634e-bcad-4576-9121-2e5d0c8416f2",
+    "emailAddress": "jorgen.gunder@gmail.com",
+    "organizationUuid": "043a74a7-2b2b-4c93-9c47-2e0c7c1f7b8b",
+    "hasExtraUsageEnabled": false,
+    "billingType": "stripe_subscription",
+    "accountCreatedAt": "2024-08-20T07:55:20.863335Z",
+    "subscriptionCreatedAt": "2024-08-20T07:58:02.782532Z",
+    "displayName": "Jørgen Bjørdal"
+  },
+  "penguinModeOrgEnabled": false,
+  "cachedExtraUsageDisabledReason": "org_level_disabled",
+  "officialMarketplaceAutoInstallAttempted": true,
+  "officialMarketplaceAutoInstalled": true,
+  "opus1mMergeNoticeSeenCount": 6,
+  "groveConfigCache": {
+    "d63a634e-bcad-4576-9121-2e5d0c8416f2": {
+      "grove_enabled": true,
+      "timestamp": 1773749772122
+    }
+  },
+  "passesEligibilityCache": {
+    "043a74a7-2b2b-4c93-9c47-2e0c7c1f7b8b": {
+      "eligible": false,
+      "referral_code_details": null,
+      "referrer_reward": null,
+      "remaining_passes": null,
+      "timestamp": 1773749772786
+    }
+  },
+  "feedbackSurveyState": {
+    "lastShownTime": 1773672347336
+  },
+  "lastPlanModeUse": 1773821097402,
+  "showSpinnerTree": false
 }
