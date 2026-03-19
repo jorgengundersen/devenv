@@ -220,7 +220,7 @@ build_mounts() {
         mounts_ref+=("-v" "${HOME}/.claude/.credentials.json:/home/devuser/.claude/.credentials.json:rw")
     fi
     if [[ -f "${claude_json_host}" ]]; then
-        mounts_ref+=("-v" "${claude_json_host}:/home/devuser/.claude.json:ro")
+        mounts_ref+=("-v" "${claude_json_host}:/home/devuser/.claude.json:rw")
     fi
     if [[ -f "${claude_settings_host}" ]]; then
         mounts_ref+=("-v" "${claude_settings_host}:${claude_settings_container}:ro")
