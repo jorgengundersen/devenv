@@ -74,6 +74,10 @@ FROM tools-bats:latest AS tool_bats
 
 FROM tools-bun:latest AS tool_bun
 
+FROM tools-afk:latest AS tool_afk
+
+FROM tools-glow:latest AS tool_glow
+
 # Final stage: Compose all tools
 FROM common_utils AS devenv
 
@@ -101,8 +105,7 @@ COPY --from=tool_nvim /usr/local/bin/nvim /usr/local/bin/nvim
 COPY --from=tool_starship /usr/local/bin/starship /usr/local/bin/starship
 COPY --from=tool_yq /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=tool_opencode /usr/local/bin/opencode /usr/local/bin/opencode
-COPY --from=tool_claude-code /opt/node/lib/node_modules/@anthropic-ai /opt/node/lib/node_modules/@anthropic-ai
-COPY --from=tool_claude-code /opt/node/bin/claude /opt/node/bin/claude
+COPY --from=tool_claude-code /home/devuser/.local/bin/claude /usr/local/bin/claude
 COPY --from=tool_copilot-cli /usr/local/bin/copilot /usr/local/bin/copilot
 COPY --from=tool_tree_sitter /usr/local/bin/tree-sitter /usr/local/bin/tree-sitter
 COPY --from=tool_make /usr/bin/make /usr/local/bin/make
@@ -116,12 +119,13 @@ COPY --from=tool_bats /usr/local/bin/bats /usr/local/bin/bats
 COPY --from=tool_bats /usr/local/lib/bats-core /usr/local/lib/bats-core
 COPY --from=tool_bats /usr/local/libexec/bats-core /usr/local/libexec/bats-core
 COPY --from=tool_bun /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=tool_afk /usr/local/bin/afk /usr/local/bin/afk
+COPY --from=tool_glow /usr/local/bin/glow /usr/local/bin/glow
 
 # Ensure node binaries are symlinked to the bundled runtime
 RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
     && ln -sf /opt/node/bin/npm /usr/local/bin/npm \
-    && ln -sf /opt/node/bin/npx /usr/local/bin/npx \
-    && ln -sf /opt/node/bin/claude /usr/local/bin/claude
+    && ln -sf /opt/node/bin/npx /usr/local/bin/npx
 
 # Ensure all binaries are executable
 RUN chmod +x /usr/local/bin/* 2>/dev/null || true

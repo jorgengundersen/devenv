@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# Tool: glow (terminal markdown reader)
+
+FROM tools-go:latest AS go_source
+
+FROM repo-base:latest AS tool_glow
+LABEL tools=true
+
+USER root
+
+COPY --from=go_source /usr/local/go /usr/local/go
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+RUN go install github.com/charmbracelet/glow/v2@latest \
+    && mv /root/go/bin/glow /usr/local/bin/glow \
+    && chmod +x /usr/local/bin/glow \
+    && chown devuser:devuser /usr/local/bin/glow \
+    && rm -rf /root/go
+
+USER devuser

@@ -174,7 +174,7 @@ Tools must be built in dependency order:
 
 1. **Stage 1 (Base):** `base` — Foundation image with OS and user setup
 2. **Stage 2 (Runtimes & Build Tools):** `cargo`, `go`, `fnm`, `uv`, `jq` — Language runtimes and essential build tools (can be parallel)
-3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `claude-code` (depends on `node`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
+3. **Stage 3 (Dependent tools):** `node` (depends on `fnm`), `tree-sitter` (depends on `node`), `ripgrep` (depends on `cargo`, `jq`)
 4. **Stage 4 (Standalone):** `common-utils`, `gh`, `nvim`, `opencode`, `copilot-cli`, `starship`, `yq`, `fzf`, `make`, `shellcheck`, `hadolint`, `mdformat` — Independent tools (can be parallel)
 
 Note: `common-utils` is also built as part of `docker/devenv/Dockerfile.devenv` as the `common_utils` intermediate stage. The `--tool common-utils` build target produces a standalone tool image for isolated testing.
@@ -192,7 +192,6 @@ Required runtime dependencies:
 | Tool | Dependencies | Artifacts to Copy |
 |------|--------------|-------------------|
 | `node` | `fnm` | `/usr/local/bin/fnm` binary |
-| `claude-code` | `node` | `/opt/node` runtime |
 | `tree-sitter` | `node` | `/opt/node` runtime |
 | `ripgrep` | `jq` | `/usr/local/bin/jq` |
 
@@ -375,7 +374,7 @@ curl -fsSL https://opencode.ai/install | bash
 ### claude-code
 
 ```bash
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 ### copilot-cli

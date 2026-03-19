@@ -36,7 +36,7 @@ Options:
     --stage <stage>      Build a stage image
                          Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                            Valid tools: bats, beads, bun, cargo, claude-code, common-utils, copilot-cli, dolt, fnm, fzf, gh, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
+                            Valid tools: afk, bats, beads, bun, cargo, claude-code, common-utils, copilot-cli, dolt, fnm, fzf, gh, glow, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --force              Force rebuild even if image already exists (implies --no-cache)
     --help               Show this help message
@@ -136,6 +136,7 @@ readonly DEVENV_TOOLS=(
     gh nvim opencode claude-code copilot-cli starship yq tree-sitter
     make shellcheck hadolint mdformat
     beads dolt bats
+    afk glow
 )
 
 # Build the devenv image (complete environment).
@@ -206,10 +207,10 @@ build_tool() {
         fi
     fi
 
-    if [[ "${tool}" == "claude-code" ]]; then
-        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-node:latest$"; then
-            log_info "Node tool image not found, building first..."
-            build_tool "node"
+    if [[ "${tool}" == "afk" || "${tool}" == "glow" ]]; then
+        if ! docker images --format '{{.Repository}}:{{.Tag}}' | grep -q "^tools-go:latest$"; then
+            log_info "Go tool image not found, building first..."
+            build_tool "go"
         fi
     fi
 
