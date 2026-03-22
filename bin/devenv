@@ -162,6 +162,8 @@ build_mounts() {
     local claude_json_host="${DEVENV_HOME}/shared/config/claude/claude.json"
     local claude_settings_host="${DEVENV_HOME}/shared/config/claude/settings.json"
     local claude_settings_container="/home/devuser/.claude/settings.json"
+    local claude_statusline_host="${DEVENV_HOME}/shared/config/claude/statusline.sh"
+    local claude_statusline_container="/home/devuser/.claude/statusline.sh"
 
     mounts_ref=()
     container_project_path=$(resolve_container_project_path "${project_path}")
@@ -224,6 +226,9 @@ build_mounts() {
     fi
     if [[ -f "${claude_settings_host}" ]]; then
         mounts_ref+=("-v" "${claude_settings_host}:${claude_settings_container}:ro")
+    fi
+    if [[ -f "${claude_statusline_host}" ]]; then
+        mounts_ref+=("-v" "${claude_statusline_host}:${claude_statusline_container}:ro")
     fi
 
     if [[ -n "${SSH_AUTH_SOCK:-}" ]]; then
