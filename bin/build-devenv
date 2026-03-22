@@ -36,7 +36,7 @@ Options:
     --stage <stage>      Build a stage image
                          Valid stages: base, devenv-base, devenv
     --tool <tool>        Build specific tool Dockerfile
-                            Valid tools: afk, bats, beads, bun, cargo, claude-code, common-utils, copilot-cli, dolt, fnm, fzf, gh, glow, go, hadolint, jq, lefthook, make, mdformat, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
+                            Valid tools: afk, bats, beads, bun, cargo, claude-code, common-utils, copilot-cli, dolt, fnm, fzf, gh, glow, go, hadolint, jq, lefthook, make, mdformat, nix, node, nvim, opencode, ripgrep, shellcheck, starship, tree-sitter, uv, yq
     --project <path>     Build project-specific image from .devenv/Dockerfile
     --force              Force rebuild even if image already exists (implies --no-cache)
     --help               Show this help message
@@ -137,6 +137,7 @@ readonly DEVENV_TOOLS=(
     make shellcheck hadolint mdformat
     beads dolt bats
     afk glow
+    nix
 )
 
 # Build the devenv image (complete environment).

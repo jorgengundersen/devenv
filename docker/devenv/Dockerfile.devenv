@@ -78,6 +78,8 @@ FROM tools-afk:latest AS tool_afk
 
 FROM tools-glow:latest AS tool_glow
 
+FROM tools-nix:latest AS tool_nix
+
 # Final stage: Compose all tools
 FROM common_utils AS devenv
 
@@ -121,6 +123,8 @@ COPY --from=tool_bats /usr/local/libexec/bats-core /usr/local/libexec/bats-core
 COPY --from=tool_bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=tool_afk /usr/local/bin/afk /usr/local/bin/afk
 COPY --from=tool_glow /usr/local/bin/glow /usr/local/bin/glow
+COPY --from=tool_nix /nix /nix
+COPY --from=tool_nix /etc/nix /etc/nix
 
 # Ensure node binaries are symlinked to the bundled runtime
 RUN ln -sf /opt/node/bin/node /usr/local/bin/node \
@@ -148,12 +152,13 @@ RUN mkdir -p /home/devuser/.cache \
 # Provide common env file locations referenced by host dotfiles
 RUN mkdir -p /home/devuser/.cargo \
     && ln -sf /usr/local/cargo/env /home/devuser/.cargo/env \
+    && ln -sf /usr/local/bin/claude /home/devuser/.local/bin/claude \
     && touch /home/devuser/.local/bin/env \
     && chown -R devuser:devuser /home/devuser/.cargo /home/devuser/.local /home/devuser/.cache /home/devuser/.claude /home/devuser/.config
 
 # Change ownership to devuser - only chown the binaries and top-level dirs
 RUN chown -R devuser:devuser /usr/local/bin \
-    && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 /opt/node 2>/dev/null || true
+    && chown devuser:devuser /usr/local/cargo /usr/local/rustup /usr/local/go /opt/nvim-linux-x86_64 /opt/node /nix 2>/dev/null || true
 
 # Copy entrypoint and logging library into the image
 COPY shared/bash/log.sh /usr/local/share/devenv/log.sh
@@ -161,7 +166,8 @@ COPY shared/scripts/entrypoint.sh /usr/local/share/devenv/entrypoint.sh
 RUN chmod +x /usr/local/share/devenv/entrypoint.sh
 
 # Set up PATH for all tools
-ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:/usr/local/bin:${PATH}"
+ENV PATH="/nix/var/nix/profiles/default/bin:/usr/local/go/bin:/usr/local/cargo/bin:/usr/local/bin:${PATH}"
+ENV NIX_CONF_DIR="/etc/nix"
 ENV RUSTUP_HOME="/usr/local/rustup"
 ENV CARGO_HOME="/usr/local/cargo"
 
