@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:claude.ai)",
-      "Bash(./bin/devenv exec:*)"
+      "Bash(./bin/devenv exec:*)",
+      "Bash(shellcheck:*)"
     ]
   }
 }

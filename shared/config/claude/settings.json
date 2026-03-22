@@ -9,6 +9,10 @@
 		"commit": "",
 		"pr": ""
 	},
+	"statusLine": {
+		"type": "command",
+		"command": "~/.claude/statusline.sh"
+	},
 	"permissions": {
 		"defaultMode": "bypassPermissions",
 		"deny": [
